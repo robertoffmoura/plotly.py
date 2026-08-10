@@ -425,3 +425,17 @@ def test_axis_mirror_mixed_configurations():
 
     assert plotly_fig.layout.xaxis.mirror == "ticks"
     assert plotly_fig.layout.yaxis.mirror == False
+
+
+def test_get_bar_gap_clamps_negative_float_noise():
+    """Touching bars can produce a tiny negative gap from floating point
+    noise (e.g. -8.88e-16 for a histogram); plotly rejects bargap outside
+    [0, 1], so the gap must be clamped."""
+    from plotly.matplotlylib.mpltools import get_bar_gap
+
+    # touching bars: gap is exactly 0
+    assert get_bar_gap([0.0, 1.0], [1.0, 2.0]) == 0.0
+    # overlapping-by-noise bars: gap is a tiny negative float, clamped to 0
+    assert get_bar_gap([0.0, 1.0], [1.0 + 1e-15, 2.0]) == 0.0
+    # positive gaps are unchanged
+    assert get_bar_gap([0.0, 2.0], [1.0, 3.0]) == 1.0
