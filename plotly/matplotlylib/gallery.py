@@ -374,9 +374,17 @@ def makegallery(filename="plotly_gallery.html", output_folder=".", functions=Non
 
     print(f"Generating plotly gallery with {len(names)} entries ...")
 
-    entries = [
-        _process_entry(name, code) for name, code in GALLERY_ENTRIES if name in names
-    ]
+    entries = []
+    for name, code in GALLERY_ENTRIES:
+        if name not in names:
+            continue
+        entry = _process_entry(name, code)
+        entries.append(entry)
+        status = (
+            f"  {entry['name']:<12} native: {'OK' if entry['nativeOK'] else 'FAIL':<4} "
+            f"plotly: {'OK' if entry['plotlyOK'] else 'FAIL'}"
+        )
+        print(status, flush=True)
 
     parts = [_html_header()]
     total = len(entries)
@@ -405,11 +413,6 @@ def makegallery(filename="plotly_gallery.html", output_folder=".", functions=Non
     parts.append("</tbody></table>\n")
     for i, entry in enumerate(entries):
         parts.append(_html_entry(entry, i + 1))
-        status = (
-            f"  {entry['name']:<12} native: {'OK' if entry['nativeOK'] else 'FAIL':<4} "
-            f"plotly: {'OK' if entry['plotlyOK'] else 'FAIL'}"
-        )
-        print(status)
     parts.append("</body>\n</html>\n")
 
     out_path = f"{output_folder.rstrip('/')}/{filename}"
