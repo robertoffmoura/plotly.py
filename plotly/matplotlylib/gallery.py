@@ -226,6 +226,7 @@ def _html_header():
 <html data-theme="auto">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>matplotlib -> plotly conversion gallery</title>
 <script src="{PLOTLY_JS}"></script>
 <script>
@@ -252,6 +253,9 @@ def _html_header():
 </script>
 <style>
   :root {{
+    --fig-width: 640; --fig-height: 480; --panel-gap: 16px; --page-padding: 24px;
+  }}
+  :root {{
     --bg: #f6f8fa; --panel: #ffffff; --text: #1f2328;
     --muted: #57606a; --code: #f6f8fa; --border: #d0d7de;
     --ok: #dafbe1; --err: #ffebe9; --err-text: #cf222e;
@@ -262,7 +266,9 @@ def _html_header():
     --ok: #1f6feb33; --err: #f8514940; --err-text: #ff7b72;
   }}
   body {{ background: var(--bg); color: var(--text);
-         font-family: -apple-system, sans-serif; margin: 24px; }}
+         font-family: -apple-system, sans-serif;
+         max-width: calc(2 * var(--fig-width) * 1px + var(--panel-gap) + 2 * var(--page-padding));
+         margin: 0; padding: var(--page-padding); }}
   h1 {{ font-size: 22px; }}
   .header {{ display: flex; align-items: center; gap: 16px; }}
   .summary {{ font-size: 14px; color: var(--muted); margin-bottom: 16px; }}
@@ -277,12 +283,15 @@ def _html_header():
   pre.codebox {{ background: var(--code); border: 1px solid var(--border);
                 border-radius: 6px; padding: 12px; overflow-x: auto;
                 font-size: 13px; }}
-  .panels {{ display: flex; gap: 16px; flex-wrap: wrap; }}
-  .panel {{ flex: 1 1 0; min-width: 320px; }}
+  .panels {{ display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+            gap: var(--panel-gap); }}
+  .panel {{ min-width: 0; }}
   .panel h3 {{ font-size: 13px; margin: 8px 0; color: var(--muted); }}
-  .panel img {{ width: 100%; max-width: 640px; border: 1px solid var(--border);
-               border-radius: 6px; }}
-  .plotlybox {{ width: 100%; max-width: 640px; height: 480px; }}
+  .panel img {{ width: 100%; max-width: min(100%, calc(var(--fig-width) * 1px));
+               border: 1px solid var(--border); border-radius: 6px; }}
+  .plotlybox {{ width: 100%; max-width: calc(var(--fig-width) * 1px);
+               height: 480px; }}
   p.err {{ color: var(--err-text); font-size: 13px; white-space: pre-wrap; }}
 </style>
 </head>
