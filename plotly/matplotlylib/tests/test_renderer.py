@@ -439,3 +439,19 @@ def test_get_bar_gap_clamps_negative_float_noise():
     assert get_bar_gap([0.0, 1.0], [1.0 + 1e-15, 2.0]) == 0.0
     # positive gaps are unchanged
     assert get_bar_gap([0.0, 2.0], [1.0, 3.0]) == 1.0
+
+
+def test_drawstyle_maps_to_line_shape():
+    cases = {
+        "steps-pre": "vh",
+        "steps": "vh",
+        "steps-post": "hv",
+        "steps-mid": "hvh",
+    }
+    for drawstyle, shape in cases.items():
+        fig, ax = plt.subplots()
+        ax.plot([0, 1, 2], [0, 1, 0], drawstyle=drawstyle)
+
+        plotly_fig = tls.mpl_to_plotly(fig)
+
+        assert plotly_fig.data[0].line.shape == shape
