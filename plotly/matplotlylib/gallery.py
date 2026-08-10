@@ -272,6 +272,12 @@ def _html_header():
   h1 {{ font-size: 22px; }}
   .header {{ display: flex; align-items: center; gap: 16px; }}
   .summary {{ font-size: 14px; color: var(--muted); margin-bottom: 16px; }}
+  table.summary {{ border-collapse: collapse; margin: 0 0 24px; font-size: 13px; }}
+  table.summary th, table.summary td {{ border: 1px solid var(--border);
+                                        padding: 3px 10px; text-align: left; }}
+  table.summary th {{ background: var(--code); }}
+  table.summary a {{ color: var(--text); text-decoration: none; }}
+  table.summary a:hover {{ text-decoration: underline; }}
   button {{ background: var(--panel); color: var(--text);
            border: 1px solid var(--border); border-radius: 6px;
            padding: 4px 12px; font-size: 13px; cursor: pointer; }}
@@ -380,6 +386,23 @@ def makegallery(filename="plotly_gallery.html", output_folder=".", functions=Non
         f'<p class="summary">{total} entries: {native_ok} native exports OK, '
         f"{plotly_ok} plotly conversions OK</p>\n"
     )
+    parts.append(
+        '<table class="summary"><thead>'
+        "<tr><th>function</th><th>native figure</th><th>plotly</th></tr>"
+        "</thead><tbody>\n"
+    )
+    for entry in entries:
+        native = "OK" if entry["nativeOK"] else "FAIL"
+        plotly = "OK" if entry["plotlyOK"] else "FAIL"
+        native_bg = "var(--ok)" if entry["nativeOK"] else "var(--err)"
+        plotly_bg = "var(--ok)" if entry["plotlyOK"] else "var(--err)"
+        parts.append(
+            f'<tr><td><a href="#fn-{entry["name"]}">{entry["name"]}</a></td>'
+            f'<td><span class="chip" style="background:{native_bg}">{native}</span></td>'
+            f'<td><span class="chip" style="background:{plotly_bg}">{plotly}</span></td>'
+            f"</tr>\n"
+        )
+    parts.append("</tbody></table>\n")
     for i, entry in enumerate(entries):
         parts.append(_html_entry(entry, i + 1))
         status = (
