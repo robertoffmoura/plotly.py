@@ -291,7 +291,7 @@ def _html_header():
   .panel img {{ width: 100%; max-width: min(100%, calc(var(--fig-width) * 1px));
                border: 1px solid var(--border); border-radius: 6px; }}
   .plotlybox {{ width: 100%; max-width: calc(var(--fig-width) * 1px);
-               height: 480px; }}
+               aspect-ratio: var(--fig-width) / var(--fig-height); }}
   p.err {{ color: var(--err-text); font-size: 13px; white-space: pre-wrap; }}
 </style>
 </head>
@@ -326,7 +326,14 @@ def _html_entry(entry, index):
         div_id = f"plotly-{index}"
         parts.append(f'<div id="{div_id}" class="plotlybox"></div>\n')
         data = json.dumps(entry["plotlyJSON"]["data"])
-        layout = json.dumps(entry["plotlyJSON"]["layout"])
+        # drop the explicit pixel size from the conversion so the figure
+        # follows its container (capped at the panel max-width) and
+        # shrinks with the window like the native PNG does
+        layout = dict(entry["plotlyJSON"]["layout"])
+        layout.pop("width", None)
+        layout.pop("height", None)
+        layout["autosize"] = True
+        layout = json.dumps(layout)
         parts.append(
             f'<script type="text/javascript">\n'
             f'Plotly.newPlot("{div_id}", {data}, {layout}, {{"responsive": true}});\n'
