@@ -532,3 +532,46 @@ def test_custom_axis_linecolors_are_preserved():
 
     assert plotly_fig.layout.xaxis.linecolor == "#FF0000"
     assert plotly_fig.layout.yaxis.linecolor == "#008000"
+
+
+def test_axis_showline_tied_to_main_spine():
+    """Test that showline follows the main-side spine (bottom for x, left for y)."""
+    fig, ax = plt.subplots()
+    ax.plot([0, 1], [0, 1])
+
+    # Hide the mirror-side spines only
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert plotly_fig.layout.xaxis.showline == True
+    assert plotly_fig.layout.yaxis.showline == True
+
+
+def test_axis_showline_hidden_when_main_spine_hidden():
+    """Test that showline is False when the main-side spine is hidden."""
+    fig, ax = plt.subplots()
+    ax.plot([0, 1], [0, 1])
+
+    # Hide the main-side spines but keep the mirror-side ones
+    ax.spines["bottom"].set_visible(False)
+    ax.spines["left"].set_visible(False)
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert plotly_fig.layout.xaxis.showline == False
+    assert plotly_fig.layout.yaxis.showline == False
+
+
+def test_ticks_hidden_when_mpl_main_ticks_hidden():
+    """Test that tick markers are hidden when the mpl main-side ticks are hidden."""
+    fig, ax = plt.subplots()
+    ax.plot([0, 1], [0, 1])
+
+    ax.tick_params(top=False, bottom=False, left=False, right=False)
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert plotly_fig.layout.xaxis.ticks == ""
+    assert plotly_fig.layout.yaxis.ticks == ""
