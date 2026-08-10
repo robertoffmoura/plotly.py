@@ -223,20 +223,52 @@ def _chip(ok, label):
 
 def _html_header():
     return f"""<!DOCTYPE html>
-<html>
+<html data-theme="auto">
 <head>
 <meta charset="utf-8">
 <title>matplotlib -> plotly conversion gallery</title>
 <script src="{PLOTLY_JS}"></script>
+<script>
+// The gallery follows the browser's preferred color scheme
+// (prefers-color-scheme) unless the user has toggled a theme,
+// in which case their choice is stored in localStorage.
+(function () {{
+  var theme = localStorage.getItem("gallery-theme") || "auto";
+  var mq = window.matchMedia("(prefers-color-scheme: dark)");
+  function apply() {{
+    var dark = theme === "dark" || (theme === "auto" && mq.matches);
+    document.documentElement.dataset.theme = dark ? "dark" : "light";
+    document.getElementById("theme-toggle").textContent =
+      dark ? "light mode" : "dark mode";
+  }}
+  mq.addEventListener("change", function () {{ if (theme === "auto") apply(); }});
+  window.toggleTheme = function () {{
+    theme = theme === "dark" ? "light" : "dark";
+    localStorage.setItem("gallery-theme", theme);
+    apply();
+  }};
+  window.addEventListener("DOMContentLoaded", apply);
+}})();
+</script>
 <style>
   :root {{
     --bg: #f6f8fa; --panel: #ffffff; --text: #1f2328;
-    --code: #f6f8fa; --border: #d0d7de; --ok: #dafbe1; --err: #ffebe9;
+    --muted: #57606a; --code: #f6f8fa; --border: #d0d7de;
+    --ok: #dafbe1; --err: #ffebe9; --err-text: #cf222e;
+  }}
+  [data-theme="dark"] {{
+    --bg: #0d1117; --panel: #161b22; --text: #e6edf3;
+    --muted: #8b949e; --code: #161b22; --border: #30363d;
+    --ok: #1f6feb33; --err: #f8514940; --err-text: #ff7b72;
   }}
   body {{ background: var(--bg); color: var(--text);
          font-family: -apple-system, sans-serif; margin: 24px; }}
   h1 {{ font-size: 22px; }}
-  .summary {{ font-size: 14px; color: #57606a; margin-bottom: 16px; }}
+  .header {{ display: flex; align-items: center; gap: 16px; }}
+  .summary {{ font-size: 14px; color: var(--muted); margin-bottom: 16px; }}
+  button {{ background: var(--panel); color: var(--text);
+           border: 1px solid var(--border); border-radius: 6px;
+           padding: 4px 12px; font-size: 13px; cursor: pointer; }}
   .entry {{ background: var(--panel); border: 1px solid var(--border);
            border-radius: 8px; padding: 16px; margin-bottom: 24px; }}
   h2 {{ font-size: 16px; margin: 0 0 8px; }}
@@ -247,15 +279,18 @@ def _html_header():
                 font-size: 13px; }}
   .panels {{ display: flex; gap: 16px; flex-wrap: wrap; }}
   .panel {{ flex: 1 1 0; min-width: 320px; }}
-  .panel h3 {{ font-size: 13px; margin: 8px 0; color: #57606a; }}
+  .panel h3 {{ font-size: 13px; margin: 8px 0; color: var(--muted); }}
   .panel img {{ width: 100%; max-width: 640px; border: 1px solid var(--border);
                border-radius: 6px; }}
   .plotlybox {{ width: 100%; max-width: 640px; height: 480px; }}
-  p.err {{ color: #cf222e; font-size: 13px; white-space: pre-wrap; }}
+  p.err {{ color: var(--err-text); font-size: 13px; white-space: pre-wrap; }}
 </style>
 </head>
 <body>
+<div class="header">
 <h1>matplotlib &#8594; plotly conversion gallery</h1>
+<button id="theme-toggle" type="button" onclick="toggleTheme()">dark mode</button>
+</div>
 """
 
 
