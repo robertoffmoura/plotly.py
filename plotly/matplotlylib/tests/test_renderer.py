@@ -594,3 +594,18 @@ def test_lines_markers_legend_plot():
     assert plotly_fig.data[0].x == tuple(x)
     assert plotly_fig.data[0].y == tuple(y)
     assert plotly_fig.data[0].name == "label"
+
+
+def test_contour_rings_are_closed():
+    """Closed contour loops (Z codes) must close in plotly, not leave a gap."""
+    x = np.linspace(-3, 3, 30)
+    X, Y = np.meshgrid(x, x)
+    fig, ax = plt.subplots()
+    ax.contour(X, Y, np.sin(X) * np.cos(Y), 10)
+    plotly_fig = tls.mpl_to_plotly(fig)
+    rings = [
+        t
+        for t in plotly_fig.data
+        if len(t.x) > 30 and t.x[0] == t.x[-1] and t.y[0] == t.y[-1]
+    ]
+    assert len(rings) >= 2
