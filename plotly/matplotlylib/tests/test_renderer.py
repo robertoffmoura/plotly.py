@@ -455,3 +455,14 @@ def test_drawstyle_maps_to_line_shape():
         plotly_fig = tls.mpl_to_plotly(fig)
 
         assert plotly_fig.data[0].line.shape == shape
+
+
+def test_stairs_converts_to_step_line():
+    fig, ax = plt.subplots()
+    ax.stairs([0.0, 1.0, 0.0], [0.0, 1.0, 2.0, 3.0])
+    plotly_fig = tls.mpl_to_plotly(fig)
+    assert len(plotly_fig.data) == 1
+    trace = plotly_fig.data[0]
+    assert trace.mode == "lines"
+    assert tuple(trace.x) == (0.0, 1.0, 1.0, 2.0, 2.0, 3.0)
+    assert tuple(trace.y) == (0.0, 0.0, 1.0, 1.0, 0.0, 0.0)
