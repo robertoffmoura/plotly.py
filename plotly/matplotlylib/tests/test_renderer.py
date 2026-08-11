@@ -466,3 +466,12 @@ def test_stairs_converts_to_step_line():
     assert trace.mode == "lines"
     assert tuple(trace.x) == (0.0, 1.0, 1.0, 2.0, 2.0, 3.0)
     assert tuple(trace.y) == (0.0, 0.0, 1.0, 1.0, 0.0, 0.0)
+
+
+def test_no_legend_entries_for_internal_mpl_labels():
+    """mpl internal labels (_nolegend_, _childN) must not become legend entries."""
+    fig, ax = plt.subplots()
+    ax.plot([0, 1, 2, 3], [0, 1, 0, 1], "b", [0, 1, 2, 3], [1, 0, 1, 0], "r--")
+    plotly_fig = tls.mpl_to_plotly(fig)
+    assert plotly_fig.layout.showlegend == False
+    assert all(t.name is None for t in plotly_fig.data)
