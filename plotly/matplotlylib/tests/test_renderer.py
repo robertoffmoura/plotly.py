@@ -475,3 +475,25 @@ def test_no_legend_entries_for_internal_mpl_labels():
     plotly_fig = tls.mpl_to_plotly(fig)
     assert plotly_fig.layout.showlegend == False
     assert all(t.name is None for t in plotly_fig.data)
+
+
+def test_boxplot_converts_with_none_marker_facecolor():
+    """Boxplot outlier markers use facecolor 'none', which plotly rejects."""
+    fig, ax = plt.subplots()
+    ax.boxplot(np.random.randn(100, 4))
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert len(plotly_fig.data) > 0
+
+
+def test_line_with_none_color_converts():
+    """Lines with color='none' use the string 'none' for the line color,
+    which plotly rejects; it must be exported as a transparent line."""
+    fig, ax = plt.subplots()
+    ax.plot([0, 1], [0, 1], color="none")
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert len(plotly_fig.data) == 1
+    assert plotly_fig.data[0].line.color == "rgba(0,0,0,0)"
