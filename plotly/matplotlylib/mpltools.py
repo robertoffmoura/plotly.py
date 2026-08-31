@@ -501,10 +501,8 @@ def prep_ticks(ax, index, ax_type, props):
     elif (
         formatter == "FuncFormatter" and props["axes"][index]["tickformat"] is not None
     ):
-        to_remove = ["dticktickmode"]
-        for key in to_remove:
-            if key in axis_dict:
-                axis_dict.pop(key)
+        axis_dict.pop("dtick", None)
+        axis_dict.pop("tickmode", None)
         axis_dict["ticktext"] = props["axes"][index]["tickformat"]
         axis_dict["tickvals"] = props["axes"][index]["tickvalues"]
     return axis_dict
