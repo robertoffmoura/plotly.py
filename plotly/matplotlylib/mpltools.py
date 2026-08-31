@@ -443,7 +443,7 @@ def prep_ticks(ax, index, ax_type, props):
             else:
                 warnings.warn(
                     "'linear' {0}-axis tick spacing not even, "
-                    "ignoring mpl tick formatting.".format(ax_type)
+                    "exporting explicit tick values instead of dtick.".format(ax_type)
                 )
                 raise TypeError
         except (IndexError, TypeError):
