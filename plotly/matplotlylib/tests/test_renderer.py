@@ -270,6 +270,22 @@ def test_non_arithmetic_progression_xticktext():
     assert plotly_fig.layout.xaxis.ticktext == tuple(xticktext)
 
 
+def test_fixed_formatter_ticktext():
+    import matplotlib.ticker as ticker
+
+    fig, ax = plt.subplots()
+    ax.plot([0, 1], [0, 1])
+    ax.xaxis.set_major_locator(ticker.FixedLocator([0.01, 0.53, 0.75]))
+    ax.xaxis.set_major_formatter(
+        ticker.FixedFormatter(["Baseline", "param = 1", "param = 2"])
+    )
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert plotly_fig.layout.xaxis.tickvals == (0.01, 0.53, 0.75)
+    assert plotly_fig.layout.xaxis.ticktext == ("Baseline", "param = 1", "param = 2")
+
+
 def test_custom_date_xtickvals_are_converted():
     """Custom tick values on a date axis must be converted to date strings,
     not left as raw matplotlib date numbers or datetime objects."""
