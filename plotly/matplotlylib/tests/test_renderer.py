@@ -257,6 +257,17 @@ def test_non_arithmetic_progression_xtickvals():
     assert plotly_fig.layout.xaxis.tickvals == tuple(xticks)
 
 
+def test_non_arithmetic_progression_yticks():
+    yticks = [0.01, 0.53, 0.75]
+    fig, ax = plt.subplots()
+    ax.plot([0, 1], [0, 1])
+    ax.set_yticks(yticks)
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert plotly_fig.layout.yaxis.tickvals == tuple(yticks)
+
+
 def test_non_arithmetic_progression_xticktext():
     xtickvals = [0.01, 0.53, 0.75]
     xticktext = ["Baseline", "param = 1", "param = 2"]
