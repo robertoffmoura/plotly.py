@@ -273,12 +273,48 @@ def test_non_arithmetic_progression_xticktext():
 def test_custom_date_xtickvals_are_converted():
     """Custom tick values on a date axis must be converted to date strings,
     not left as raw matplotlib date numbers or datetime objects."""
-    dates = [
-        datetime.datetime(2023, 1, 1) + datetime.timedelta(days=i) for i in range(10)
-    ]
+    dates = [datetime.datetime(2023, 1, i) for i in range(1, 11)]
     fig, ax = plt.subplots()
     ax.plot(dates, np.random.rand(10))
     ax.set_xticks(dates[::3])
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert plotly_fig.layout.xaxis.tickvals == (
+        "2023-01-01 00:00:00",
+        "2023-01-04 00:00:00",
+        "2023-01-07 00:00:00",
+        "2023-01-10 00:00:00",
+    )
+
+
+def test_uneven_custom_date_xtickvals_are_converted():
+    """Unevenly spaced custom date ticks must be converted to date strings."""
+    dates = [datetime.datetime(2023, 1, i) for i in range(1, 11)]
+    ticks = [datetime.datetime(2023, 1, i) for i in [1, 3, 6, 10]]
+    fig, ax = plt.subplots()
+    ax.plot(dates, np.random.rand(10))
+    ax.set_xticks(ticks)
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert plotly_fig.layout.xaxis.tickvals == (
+        "2023-01-01 00:00:00",
+        "2023-01-03 00:00:00",
+        "2023-01-06 00:00:00",
+        "2023-01-10 00:00:00",
+    )
+
+
+def test_custom_date_xtickvals_given_as_numbers_are_converted():
+    """Custom date ticks given as matplotlib date numbers must be converted
+    to date strings."""
+    import matplotlib.dates as mdates
+
+    dates = [datetime.datetime(2023, 1, i) for i in range(1, 11)]
+    fig, ax = plt.subplots()
+    ax.plot(dates, np.random.rand(10))
+    ax.set_xticks([mdates.date2num(d) for d in dates[::3]])
 
     plotly_fig = tls.mpl_to_plotly(fig)
 
