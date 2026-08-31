@@ -268,3 +268,23 @@ def test_non_arithmetic_progression_xticktext():
 
     assert plotly_fig.layout.xaxis.tickvals == tuple(xtickvals)
     assert plotly_fig.layout.xaxis.ticktext == tuple(xticktext)
+
+
+def test_custom_date_xtickvals_are_converted():
+    """Custom tick values on a date axis must be converted to date strings,
+    not left as raw matplotlib date numbers or datetime objects."""
+    dates = [
+        datetime.datetime(2023, 1, 1) + datetime.timedelta(days=i) for i in range(10)
+    ]
+    fig, ax = plt.subplots()
+    ax.plot(dates, np.random.rand(10))
+    ax.set_xticks(dates[::3])
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert plotly_fig.layout.xaxis.tickvals == (
+        "2023-01-01 00:00:00",
+        "2023-01-04 00:00:00",
+        "2023-01-07 00:00:00",
+        "2023-01-10 00:00:00",
+    )

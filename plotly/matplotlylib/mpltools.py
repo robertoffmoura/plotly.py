@@ -487,14 +487,15 @@ def prep_ticks(ax, index, ax_type, props):
     formatter = axis.get_major_formatter().__class__.__name__
     if ax_type == "x" and "DateFormatter" in formatter:
         axis_dict["type"] = "date"
-        try:
-            axis_dict["tick0"] = mpl_dates_to_datestrings(axis_dict["tick0"], formatter)
-        except KeyError:
-            pass
-        finally:
+        tickvalues = props["axes"][index]["tickvalues"]
+        if tickvalues is not None:
+            # custom ticks: export the exact locations and drop the
+            # arithmetic tick0/dtick spec, which plotly would use instead
+            axis_dict["tickvals"] = mpl_dates_to_datestrings(tickvalues, formatter)
+            axis_dict.pop("tick0", None)
             axis_dict.pop("dtick", None)
             axis_dict.pop("tickmode", None)
-            axis_dict["range"] = mpl_dates_to_datestrings(props["xlim"], formatter)
+        axis_dict["range"] = mpl_dates_to_datestrings(props["xlim"], formatter)
 
     if formatter == "LogFormatterMathtext":
         axis_dict["exponentformat"] = "e"
