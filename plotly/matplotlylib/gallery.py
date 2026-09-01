@@ -272,6 +272,15 @@ GALLERY_ENTRIES = [
         + "plt.pcolormesh(X, Y, np.sin(X) * np.cos(Y))",
     ),
     (
+        "pcolorfast",
+        "plt.gca().pcolorfast(np.linspace(-3, 3, 11), np.linspace(-3, 3, 11), np.random.rand(10, 10))",
+    ),
+    (
+        "violin",
+        "import matplotlib.cbook as cbook\n"
+        + "plt.gca().violin(cbook.violin_stats(np.random.randn(100, 3)))",
+    ),
+    (
         "spy",
         "plt.spy(np.random.rand(10, 10) > 0.7)",
     ),
