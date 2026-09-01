@@ -167,6 +167,159 @@ GALLERY_ENTRIES = [
         + "ax = plt.axes(projection='3d')\n"
         + "ax.plot_surface(X, Y, np.sin(np.sqrt(X**2 + Y**2)))",
     ),
+    (
+        "acorr",
+        "x = np.random.randn(100)\n" + "plt.acorr(x, maxlags=20)",
+    ),
+    (
+        "xcorr",
+        "x = np.random.randn(100)\n" + "plt.xcorr(x, x, maxlags=20)",
+    ),
+    (
+        "angle_spectrum",
+        "plt.angle_spectrum(np.random.randn(1000))",
+    ),
+    (
+        "magnitude_spectrum",
+        "plt.magnitude_spectrum(np.random.randn(1000))",
+    ),
+    (
+        "phase_spectrum",
+        "plt.phase_spectrum(np.random.randn(1000))",
+    ),
+    (
+        "specgram",
+        "plt.specgram(np.random.randn(1000))",
+    ),
+    (
+        "psd",
+        "plt.psd(np.random.randn(1000))",
+    ),
+    (
+        "csd",
+        "plt.csd(np.random.randn(1000), np.random.randn(1000))",
+    ),
+    (
+        "cohere",
+        "plt.cohere(np.random.randn(1000), np.random.randn(1000))",
+    ),
+    (
+        "axhline",
+        "plt.axhline(0.5)",
+    ),
+    (
+        "axvline",
+        "plt.axvline(0.5)",
+    ),
+    (
+        "axline",
+        "plt.axline((0, 0), slope=1)",
+    ),
+    (
+        "hlines",
+        "plt.hlines([0.5, 0.75], 0, 1)",
+    ),
+    (
+        "vlines",
+        "plt.vlines([0.25, 0.75], 0, 1)",
+    ),
+    (
+        "axhspan",
+        "plt.axhspan(0.25, 0.75)",
+    ),
+    (
+        "axvspan",
+        "plt.axvspan(0.25, 0.75)",
+    ),
+    (
+        "barbs",
+        "x, y = np.meshgrid(np.linspace(0, 1, 5), np.linspace(0, 1, 5))\n"
+        + "plt.barbs(x, y, np.random.randn(5, 5), np.random.randn(5, 5))",
+    ),
+    (
+        "bar_label",
+        "plt.bar(np.arange(5), [1, 2, 3, 2, 1])\n"
+        + "plt.bar_label(plt.gca().containers[0])",
+    ),
+    (
+        "clabel",
+        "x = np.linspace(-3, 3, 30)\n"
+        + "X, Y = np.meshgrid(x, x)\n"
+        + "plt.contour(X, Y, np.sin(X) * np.cos(Y))\n"
+        + "plt.clabel(plt.gca().collections[0])",
+    ),
+    (
+        "ecdf",
+        "plt.ecdf(np.random.randn(100))",
+    ),
+    (
+        "fill_betweenx",
+        "x = np.linspace(0, 2 * np.pi, 100)\n"
+        + "plt.fill_betweenx(x, np.sin(x), np.cos(x))",
+    ),
+    (
+        "hist2d",
+        "plt.hist2d(np.random.randn(1000), np.random.randn(1000), bins=20)",
+    ),
+    (
+        "matshow",
+        "plt.matshow(np.random.rand(10, 10))",
+    ),
+    (
+        "pcolormesh",
+        "x = np.linspace(-3, 3, 30)\n"
+        + "X, Y = np.meshgrid(x, x)\n"
+        + "plt.pcolormesh(X, Y, np.sin(X) * np.cos(Y))",
+    ),
+    (
+        "spy",
+        "plt.spy(np.random.rand(10, 10) > 0.7)",
+    ),
+    (
+        "streamplot",
+        "Y, X = np.mgrid[-3:3:100j, -3:3:100j]\n"
+        + "U = -1 - X**2 + Y\n"
+        + "V = 1 + X - Y**2\n"
+        + "plt.streamplot(X, Y, U, V)",
+    ),
+    (
+        "table",
+        "plt.table(cellText=np.random.randint(0, 10, (3, 3)))",
+    ),
+    (
+        "tricontour",
+        "x = np.random.rand(50)\n"
+        + "y = np.random.rand(50)\n"
+        + "plt.tricontour(x, y, x + y)",
+    ),
+    (
+        "tricontourf",
+        "x = np.random.rand(50)\n"
+        + "y = np.random.rand(50)\n"
+        + "plt.tricontourf(x, y, x + y)",
+    ),
+    (
+        "tripcolor",
+        "plt.tripcolor(np.random.rand(50), np.random.rand(50), np.random.rand(50))",
+    ),
+    (
+        "triplot",
+        "x = np.random.rand(50)\n"
+        + "y = np.random.rand(50)\n"
+        + "plt.triplot(x, y)",
+    ),
+    (
+        "text",
+        "plt.text(0.5, 0.5, 'hello')",
+    ),
+    (
+        "annotate",
+        "plt.plot([0, 1], [0, 1])\n" + "plt.annotate('note', (0.5, 0.5))",
+    ),
+    (
+        "arrow",
+        "plt.arrow(0, 0, 0.5, 0.5)",
+    ),
 ]
 
 
