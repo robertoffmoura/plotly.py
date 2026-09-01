@@ -371,6 +371,22 @@ class PlotlyRenderer(Renderer):
         """
         tol = 1e-10
         trace = [mpltools.make_bar(**bar_props) for bar_props in coll]
+        if self.current_is_polar:
+            self.msg += "    Attempting to draw a polar bar chart\n"
+            bar = go.Barpolar(
+                theta=[np.degrees(b["x0"] + (b["x1"] - b["x0"]) / 2) for b in trace],
+                r=[b["y1"] - b["y0"] for b in trace],
+                base=trace[0]["y0"],
+                width=np.degrees(trace[0]["x1"] - trace[0]["x0"]),
+                subplot=self.current_polar_subplot,
+                marker=go.barpolar.Marker(
+                    color=_export_color(trace[0]["facecolor"]),
+                    line=dict(width=trace[0]["edgewidth"]),
+                ),
+            )
+            self.plotly_fig.add_trace(bar)
+            self.msg += "    Heck yeah, I drew that polar bar chart\n"
+            return
         widths = [bar_props["x1"] - bar_props["x0"] for bar_props in trace]
         heights = [bar_props["y1"] - bar_props["y0"] for bar_props in trace]
         vertical = abs(sum(widths[0] - widths[iii] for iii in range(len(widths)))) < tol

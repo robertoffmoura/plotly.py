@@ -637,3 +637,21 @@ def test_polar_plot_converts():
     assert polar.angularaxis.linecolor == "#000000"
     assert polar.angularaxis.linewidth == 0.8
     assert polar.radialaxis.showline is False
+
+
+def test_polar_bar_converts():
+    """Bars on polar axes convert to barpolar traces with theta in degrees."""
+    theta = np.linspace(0, 2 * np.pi, 8, endpoint=False)
+    heights = np.random.rand(8)
+    fig, ax = plt.subplots(subplot_kw={"projection": "polar"})
+    ax.bar(theta, heights, width=0.6)
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    trace = plotly_fig.data[0]
+    assert trace.type == "barpolar"
+    assert trace.subplot == "polar"
+    assert np.allclose(trace.theta[0], 0)
+    assert np.allclose(trace.theta[1], 45)
+    assert np.allclose(trace.r, heights)
+    assert np.allclose(trace.width, np.degrees(0.6))
