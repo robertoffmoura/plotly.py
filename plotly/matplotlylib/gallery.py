@@ -31,6 +31,7 @@ matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
 import numpy as np
+from packaging.version import Version
 
 import plotly.tools as tls
 
@@ -282,6 +283,7 @@ GALLERY_ENTRIES = [
     (
         "ecdf",
         "plt.ecdf(np.random.randn(100))",
+        "3.8",
     ),
     (
         "fill_betweenx",
@@ -361,10 +363,12 @@ GALLERY_ENTRIES = [
     (
         "grouped_bar",
         "plt.grouped_bar({'g1': [1, 2, 3], 'g2': [2, 3, 4]})",
+        "3.11",
     ),
     (
         "pie_label",
         "c = plt.pie([3, 5, 2, 4])\n" + "plt.pie_label(c, ['a', 'b', 'c', 'd'])",
+        "3.11",
     ),
     (
         "quiverkey",
@@ -473,6 +477,7 @@ GALLERY_ENTRIES = [
         "ax = plt.axes(projection='3d')\n"
         + "x = np.linspace(0, 10, 50)\n"
         + "ax.fill_between(x, np.sin(x), np.cos(x), x, -np.sin(x), -np.cos(x))",
+        "3.10",
     ),
 ]
 
@@ -485,7 +490,7 @@ def _base64_data_uri(png_bytes):
     return "data:image/png;base64," + base64.b64encode(png_bytes).decode("ascii")
 
 
-def _process_entry(name, code):
+def _process_entry(name, code, min_mpl_version=None):
     entry = {
         "name": name,
         "code": code,
@@ -495,6 +500,11 @@ def _process_entry(name, code):
         "plotlyError": "",
         "image": "",
     }
+    if min_mpl_version is not None and Version(matplotlib.__version__) < Version(
+        min_mpl_version
+    ):
+        entry["nativeError"] = f"requires matplotlib >= {min_mpl_version}"
+        return entry
     plt.close("all")
     try:
         with warnings.catch_warnings():
@@ -684,15 +694,19 @@ def makegallery(filename="plotly_gallery.html", output_folder=".", functions=Non
     print(f"Generating plotly gallery with {len(names)} entries ...")
 
     entries = []
-    for name, code in GALLERY_ENTRIES:
+    for entry_spec in GALLERY_ENTRIES:
+        name, code = entry_spec[0], entry_spec[1]
         if name not in names:
             continue
-        entry = _process_entry(name, code)
+        min_mpl_version = entry_spec[2] if len(entry_spec) > 2 else None
+        entry = _process_entry(name, code, min_mpl_version)
         entries.append(entry)
         status = (
             f"  {entry['name']:<12} native: {'OK' if entry['nativeOK'] else 'FAIL':<4} "
             f"plotly: {'OK' if entry['plotlyOK'] else 'FAIL'}"
         )
+        if not entry["nativeOK"] and entry["nativeError"]:
+            status += f"  [{entry['nativeError']}]"
         print(status, flush=True)
 
     parts = [_html_header()]
