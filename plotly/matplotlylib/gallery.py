@@ -22,6 +22,8 @@ import io
 import json
 import traceback
 import warnings
+import webbrowser
+from pathlib import Path
 
 import matplotlib
 
@@ -424,6 +426,7 @@ def makegallery(filename="plotly_gallery.html", output_folder=".", functions=Non
         f"  {native_ok}/{total} native figure exports OK, "
         f"{plotly_ok}/{total} plotly conversions OK"
     )
+    webbrowser.open(Path(out_path).resolve().as_uri())
     return out_path
 
 
