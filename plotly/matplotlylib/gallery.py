@@ -319,6 +319,32 @@ GALLERY_ENTRIES = [
         "plt.arrow(0, 0, 0.5, 0.5)",
     ),
     (
+        "grouped_bar",
+        "plt.grouped_bar({'g1': [1, 2, 3], 'g2': [2, 3, 4]})",
+    ),
+    (
+        "pie_label",
+        "c = plt.pie([3, 5, 2, 4])\n" + "plt.pie_label(c, ['a', 'b', 'c', 'd'])",
+    ),
+    (
+        "quiverkey",
+        "plt.quiver([0], [0], [1], [1])\n"
+        + "plt.quiverkey(plt.gca().collections[0], 0.9, 0.9, 1, 'scale')",
+    ),
+    (
+        "figimage",
+        "plt.figimage(np.random.rand(10, 10) * 255)",
+    ),
+    (
+        "figtext",
+        "plt.figtext(0.5, 0.5, 'hello')",
+    ),
+    (
+        "bxp",
+        "import matplotlib.cbook as cbook\n"
+        + "plt.gca().bxp(cbook.boxplot_stats(np.random.randn(100, 3)))",
+    ),
+    (
         "plot3d",
         "ax = plt.axes(projection='3d')\n"
         + "z = np.linspace(0, 10, 100)\n"
