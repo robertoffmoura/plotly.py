@@ -258,6 +258,11 @@ class Exporter(object):
         )
         path_coords = self.process_transform(transform, ax, force_trans=force_pathtrans)
 
+        if ax.name == "polar" and offset_coords != "data":
+            # On polar axes matplotlib reports the offsets as display
+            # coordinates, but they are actually (theta, r) data values.
+            offset_coords, offsets = "data", collection.get_offsets()
+
         processed_paths = [utils.SVG_path(path) for path in paths]
         processed_paths = [
             (
