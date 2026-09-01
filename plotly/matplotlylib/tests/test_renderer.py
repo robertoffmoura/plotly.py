@@ -698,10 +698,10 @@ def test_polar_errorbar_caps_converts():
     plotly_fig = tls.mpl_to_plotly(fig)
 
     lines = [t for t in plotly_fig.data if t.mode == "lines"]
-    assert len(lines) == 8  # 4 theta-error + 4 r-error segments
+    # 4 theta-error + 4 r-error segments plus 16 caps
+    assert len(lines) == 24
     assert all(t.type == "scatterpolar" for t in lines)
     assert all(t.subplot == "polar" for t in lines)
-    # 1 data marker plus 16 cap markers (caps are marker Line2D in matplotlib)
     markers = [t for t in plotly_fig.data if t.mode == "markers"]
-    assert len(markers) == 17
-    assert all(t.type == "scatterpolar" for t in markers)
+    assert len(markers) == 1
+    assert markers[0].type == "scatterpolar"

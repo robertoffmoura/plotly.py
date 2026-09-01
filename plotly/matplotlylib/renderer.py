@@ -563,6 +563,21 @@ class PlotlyRenderer(Renderer):
             if isinstance(label, str) and label.startswith("_"):
                 label = None
             if self.current_is_polar:
+                if (
+                    props["linestyle"] is None
+                    and props["markerstyle"] is not None
+                    and props["markerstyle"]["marker"] in ("_", "|")
+                ):
+                    # error bar caps: marker paths drawn in display space
+                    for xy_pair in props["data"]:
+                        self._draw_polar_cap(
+                            props,
+                            xy_pair,
+                            _export_color(props["markerstyle"]["edgecolor"]),
+                            props["markerstyle"]["edgewidth"],
+                        )
+                    self.msg += "    Heck yeah, I drew polar error bar caps\n"
+                    return
                 self.plotly_fig.add_trace(
                     go.Scatterpolar(
                         mode=mode,
@@ -790,6 +805,30 @@ class PlotlyRenderer(Renderer):
                     subplot=self.current_polar_subplot,
                 )
             )
+
+    def _draw_polar_cap(self, props, xy_pair, color, width):
+        """Draw an error-bar cap as a short scatterpolar line trace.
+
+        The cap is a marker path rendered in display space; its outline
+        in display units is in the markerstyle markerpath, so each vertex
+        is placed at the data point's display position and mapped back to
+        polar data coordinates.
+        """
+        ax = self.current_mpl_ax
+        display_point = ax.transData.transform(xy_pair)
+        verts = [
+            ax.transData.inverted().transform(display_point + [vx, vy])
+            for vx, vy in props["markerstyle"]["markerpath"][0]
+        ]
+        self.plotly_fig.add_trace(
+            go.Scatterpolar(
+                theta=np.degrees([v[0] for v in verts]),
+                r=[v[1] for v in verts],
+                mode="lines",
+                line=go.scatterpolar.Line(color=color, width=width),
+                subplot=self.current_polar_subplot,
+            )
+        )
 
     def _draw_filled_path_collection(self, props):
         """Draw a path collection (e.g. violin plot bodies) as filled polygons."""

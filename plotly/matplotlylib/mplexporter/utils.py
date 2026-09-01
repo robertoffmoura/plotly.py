@@ -170,7 +170,9 @@ def get_marker_style(line):
     style["edgewidth"] = line.get_markeredgewidth()
 
     style["marker"] = line.get_marker()
-    markerstyle = MarkerStyle(line.get_marker())
+    # use the line's MarkerStyle so per-line marker transforms are kept
+    # (e.g. polar error bar caps carry a rotation in theirs)
+    markerstyle = getattr(line, "_marker", None) or MarkerStyle(line.get_marker())
     markersize = line.get_markersize()
     markertransform = markerstyle.get_transform() + Affine2D().scale(
         markersize, -markersize
