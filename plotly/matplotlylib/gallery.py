@@ -161,6 +161,17 @@ GALLERY_ENTRIES = [
         + "plt.polar(t, 1 + 0.5 * np.sin(3 * t))",
     ),
     (
+        "bar_polar",
+        "fig, ax = plt.subplots(subplot_kw={'projection': 'polar'})\n"
+        + "theta = np.linspace(0, 2 * np.pi, 8, endpoint=False)\n"
+        + "ax.bar(theta, np.random.rand(8), width=0.6)",
+    ),
+    (
+        "scatter_polar",
+        "fig, ax = plt.subplots(subplot_kw={'projection': 'polar'})\n"
+        + "ax.scatter(np.random.rand(50) * 2 * np.pi, np.random.rand(50))",
+    ),
+    (
         "surf",
         "x = np.linspace(-3, 3, 30)\n"
         + "X, Y = np.meshgrid(x, x)\n"
