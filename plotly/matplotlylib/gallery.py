@@ -318,6 +318,96 @@ GALLERY_ENTRIES = [
         "arrow",
         "plt.arrow(0, 0, 0.5, 0.5)",
     ),
+    (
+        "plot3d",
+        "ax = plt.axes(projection='3d')\n"
+        + "z = np.linspace(0, 10, 100)\n"
+        + "ax.plot(z, np.sin(z), np.cos(z))",
+    ),
+    (
+        "scatter3d",
+        "ax = plt.axes(projection='3d')\n"
+        + "ax.scatter(np.random.rand(50), np.random.rand(50), np.random.rand(50))",
+    ),
+    (
+        "bar3d",
+        "ax = plt.axes(projection='3d')\n"
+        + "xp, yp = np.meshgrid(np.arange(4), np.arange(4))\n"
+        + "ax.bar3d(xp.ravel(), yp.ravel(), 0, 1, 1, np.random.rand(16))",
+    ),
+    (
+        "contour3d",
+        "x = np.linspace(-3, 3, 30)\n"
+        + "X, Y = np.meshgrid(x, x)\n"
+        + "Z = np.sin(X) * np.cos(Y)\n"
+        + "ax = plt.axes(projection='3d')\n"
+        + "ax.contour(X, Y, Z, 10)",
+    ),
+    (
+        "contourf3d",
+        "x = np.linspace(-3, 3, 30)\n"
+        + "X, Y = np.meshgrid(x, x)\n"
+        + "Z = np.sin(X) * np.cos(Y)\n"
+        + "ax = plt.axes(projection='3d')\n"
+        + "ax.contourf(X, Y, Z, 10, zdir='z', offset=-1)",
+    ),
+    (
+        "wireframe",
+        "x = np.linspace(-3, 3, 30)\n"
+        + "X, Y = np.meshgrid(x, x)\n"
+        + "Z = np.sin(X) * np.cos(Y)\n"
+        + "ax = plt.axes(projection='3d')\n"
+        + "ax.plot_wireframe(X, Y, Z)",
+    ),
+    (
+        "trisurf3d",
+        "ax = plt.axes(projection='3d')\n"
+        + "x = np.random.rand(50)\n"
+        + "y = np.random.rand(50)\n"
+        + "ax.plot_trisurf(x, y, x + y)",
+    ),
+    (
+        "quiver3d",
+        "ax = plt.axes(projection='3d')\n" + "ax.quiver(0, 0, 0, 1, 2, 3)",
+    ),
+    (
+        "stem3d",
+        "ax = plt.axes(projection='3d')\n"
+        + "ax.stem(np.arange(10), np.sin(np.arange(10)), np.cos(np.arange(10)))",
+    ),
+    (
+        "text3d",
+        "ax = plt.axes(projection='3d')\n" + "ax.text(0, 0, 0, 'hello')",
+    ),
+    (
+        "tricontour3d",
+        "ax = plt.axes(projection='3d')\n"
+        + "x = np.random.rand(50)\n"
+        + "y = np.random.rand(50)\n"
+        + "ax.tricontour(x, y, x + y, 10, zdir='z', offset=-1)",
+    ),
+    (
+        "tricontourf3d",
+        "ax = plt.axes(projection='3d')\n"
+        + "x = np.random.rand(50)\n"
+        + "y = np.random.rand(50)\n"
+        + "ax.tricontourf(x, y, x + y, 10, zdir='z', offset=-1)",
+    ),
+    (
+        "voxels",
+        "ax = plt.axes(projection='3d')\n" + "ax.voxels(np.random.rand(3, 3, 3) > 0.5)",
+    ),
+    (
+        "errorbar3d",
+        "ax = plt.axes(projection='3d')\n"
+        + "ax.errorbar(np.arange(5), np.arange(5), np.arange(5), zerr=0.2)",
+    ),
+    (
+        "fill_between3d",
+        "ax = plt.axes(projection='3d')\n"
+        + "x = np.linspace(0, 10, 50)\n"
+        + "ax.fill_between(x, np.sin(x), np.cos(x), x, -np.sin(x), -np.cos(x))",
+    ),
 ]
 
 
