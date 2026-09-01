@@ -304,9 +304,7 @@ GALLERY_ENTRIES = [
     ),
     (
         "triplot",
-        "x = np.random.rand(50)\n"
-        + "y = np.random.rand(50)\n"
-        + "plt.triplot(x, y)",
+        "x = np.random.rand(50)\n" + "y = np.random.rand(50)\n" + "plt.triplot(x, y)",
     ),
     (
         "text",
