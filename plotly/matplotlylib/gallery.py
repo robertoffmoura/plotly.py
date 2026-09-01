@@ -172,6 +172,26 @@ GALLERY_ENTRIES = [
         + "ax.scatter(np.random.rand(50) * 2 * np.pi, np.random.rand(50))",
     ),
     (
+        "polar_error_caps",
+        "fig, ax = plt.subplots(subplot_kw={'projection': 'polar'})\n"
+        + "theta = 2 * np.pi * np.random.rand(10)\n"
+        + "r = 10 * np.random.rand(10)\n"
+        + "ax.errorbar(theta, r, xerr=0.25, yerr=0.1, capsize=7, fmt='o', c='seagreen')",
+    ),
+    (
+        "polar_legend",
+        "fig, ax = plt.subplots(subplot_kw={'projection': 'polar'})\n"
+        + "t = np.linspace(0, 2 * np.pi, 100)\n"
+        + "ax.plot(t, 1 + 0.5 * np.sin(3 * t), label='curve')\n"
+        + "ax.legend()",
+    ),
+    (
+        "annotate_polar",
+        "fig, ax = plt.subplots(subplot_kw={'projection': 'polar'})\n"
+        + "ax.plot([0, np.pi/4], [0.2, 0.8])\n"
+        + "ax.annotate('polar annotation', xy=(np.pi/4, 0.8))",
+    ),
+    (
         "surf",
         "x = np.linspace(-3, 3, 30)\n"
         + "X, Y = np.meshgrid(x, x)\n"
