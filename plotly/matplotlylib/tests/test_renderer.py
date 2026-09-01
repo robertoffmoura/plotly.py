@@ -655,3 +655,19 @@ def test_polar_bar_converts():
     assert np.allclose(trace.theta[1], 45)
     assert np.allclose(trace.r, heights)
     assert np.allclose(trace.width, np.degrees(0.6))
+
+
+def test_polar_scatter_converts():
+    """Scatter markers on polar axes convert to scatterpolar marker traces."""
+    theta = np.random.rand(50) * 2 * np.pi
+    r = np.random.rand(50)
+    fig, ax = plt.subplots(subplot_kw={"projection": "polar"})
+    ax.scatter(theta, r)
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    trace = plotly_fig.data[0]
+    assert trace.type == "scatterpolar"
+    assert trace.mode == "markers"
+    assert np.allclose(trace.theta, np.degrees(theta))
+    assert np.allclose(trace.r, r)
