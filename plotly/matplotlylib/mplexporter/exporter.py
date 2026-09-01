@@ -274,6 +274,20 @@ class Exporter(object):
             for path in processed_paths
         ]
 
+        if ax.name == "polar" and isinstance(
+            collection, matplotlib.collections.LineCollection
+        ):
+            # line collection segments on polar axes are (theta, r) data,
+            # but _prepare_points reports display coordinates
+            path_coords = "data"
+            processed_paths = [
+                (
+                    [tuple(pt) for pt in segment],
+                    ["M"] + ["L"] * (len(segment) - 1),
+                )
+                for segment in collection.get_segments()
+            ]
+
         path_transforms = collection.get_transforms()
         try:
             # matplotlib 1.3: path_transforms are transform objects.

@@ -667,7 +667,10 @@ class PlotlyRenderer(Renderer):
 
         """
         self.msg += "    Attempting to draw a path collection\n"
-        if props["offset_coordinates"] == "data":
+        if self.current_is_polar and type(props["mplobj"]).__name__ == "LineCollection":
+            self.msg += "    Drawing polar line collection as lines\n"
+            self._draw_polar_line_collection(props)
+        elif props["offset_coordinates"] == "data":
             markerstyle = mpltools.get_markerstyle_from_collection(props)
             scatter_props = {
                 "coordinates": "data",
@@ -758,6 +761,35 @@ class PlotlyRenderer(Renderer):
                         yaxis="y{0}".format(self.axis_ct),
                     )
                 )
+
+    def _draw_polar_line_collection(self, props):
+        """Draw line collection segments (e.g. polar error bars) as lines."""
+        edgecolors = mpltools.convert_rgba_array(props["styles"]["edgecolor"])
+        linewidths = mpltools.convert_linewidth_array(props["styles"]["linewidth"])
+
+        def per_segment(colors, i, default):
+            if isinstance(colors, str):
+                return colors
+            if colors is None:
+                return default
+            try:
+                n = len(colors)
+            except TypeError:
+                return colors
+            return colors[i % n] if n else default
+
+        for i, (verts, codes) in enumerate(props["paths"]):
+            color = per_segment(edgecolors, i, "rgba(0,0,0,0)")
+            width = per_segment(linewidths, i, 1)
+            self.plotly_fig.add_trace(
+                go.Scatterpolar(
+                    theta=np.degrees([v[0] for v in verts]),
+                    r=[v[1] for v in verts],
+                    mode="lines",
+                    line=go.scatterpolar.Line(color=_export_color(color), width=width),
+                    subplot=self.current_polar_subplot,
+                )
+            )
 
     def _draw_filled_path_collection(self, props):
         """Draw a path collection (e.g. violin plot bodies) as filled polygons."""

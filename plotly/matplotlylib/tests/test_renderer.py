@@ -671,3 +671,37 @@ def test_polar_scatter_converts():
     assert trace.mode == "markers"
     assert np.allclose(trace.theta, np.degrees(theta))
     assert np.allclose(trace.r, r)
+
+
+def test_polar_errorbar_converts():
+    """Error bars on polar axes convert to scatterpolar line traces."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "polar"})
+    ax.errorbar([0.5], [0.5], yerr=0.1, fmt="o")
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    lines = [t for t in plotly_fig.data if t.mode == "lines"]
+    assert len(lines) == 1
+    assert lines[0].type == "scatterpolar"
+    assert lines[0].subplot == "polar"
+    assert np.allclose(lines[0].theta, [np.degrees(0.5)] * 2)
+    assert np.allclose(lines[0].r, [0.4, 0.6])
+
+
+def test_polar_errorbar_caps_converts():
+    """Polar error bars with xerr and caps draw all segments as line traces."""
+    theta = 2 * np.pi * np.random.rand(4)
+    r = np.random.rand(4)
+    fig, ax = plt.subplots(subplot_kw={"projection": "polar"})
+    ax.errorbar(theta, r, xerr=0.25, yerr=0.1, capsize=7, fmt="o", c="seagreen")
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    lines = [t for t in plotly_fig.data if t.mode == "lines"]
+    assert len(lines) == 8  # 4 theta-error + 4 r-error segments
+    assert all(t.type == "scatterpolar" for t in lines)
+    assert all(t.subplot == "polar" for t in lines)
+    # 1 data marker plus 16 cap markers (caps are marker Line2D in matplotlib)
+    markers = [t for t in plotly_fig.data if t.mode == "markers"]
+    assert len(markers) == 17
+    assert all(t.type == "scatterpolar" for t in markers)
