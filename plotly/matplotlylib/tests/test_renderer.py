@@ -1110,3 +1110,25 @@ def test_lines_markers_legend_plot():
     assert plotly_fig.data[0].x == tuple(x)
     assert plotly_fig.data[0].y == tuple(y)
     assert plotly_fig.data[0].name == "label"
+
+
+def test_polar_plot_converts():
+    """Polar plots convert to scatterpolar traces on a plotly polar layout,
+    with theta converted from radians to degrees."""
+    t = np.linspace(0, 2 * np.pi, 200)
+    fig, ax = plt.subplots(subplot_kw={"projection": "polar"})
+    ax.plot(t, 1 + 0.5 * np.sin(3 * t))
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    trace = plotly_fig.data[0]
+    assert trace.type == "scatterpolar"
+    assert trace.subplot == "polar"
+    assert np.allclose(trace.theta[0], 0)
+    assert np.allclose(trace.r[0], 1)
+    assert np.allclose(trace.theta[-1], 360)
+    polar = plotly_fig.layout.polar
+    assert polar.angularaxis.direction == "clockwise"
+    assert polar.angularaxis.rotation == 90
+    assert polar.angularaxis.ticktext[0] == "0°"
+    assert polar.radialaxis.range == tuple(float(v) for v in ax.get_ylim())
