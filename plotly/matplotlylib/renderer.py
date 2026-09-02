@@ -102,7 +102,13 @@ class PlotlyRenderer(Renderer):
             formatter = (
                 self.current_mpl_ax.get_xaxis().get_major_formatter().__class__.__name__
             )
-            x = mpltools.mpl_dates_to_datestrings(x, formatter)
+            if any(val is None for val in x):
+                valid_x = [val for val in x if val is not None]
+                converted = mpltools.mpl_dates_to_datestrings(valid_x, formatter)
+                conv_iter = iter(converted)
+                x = [next(conv_iter) if val is not None else None for val in x]
+            else:
+                x = mpltools.mpl_dates_to_datestrings(x, formatter)
         return x
 
     def _open_polar_axes(self, ax, props):
@@ -1161,11 +1167,47 @@ class PlotlyRenderer(Renderer):
             facecolor = per_path(facecolors, i, "rgba(0,0,0,0)")
             edgecolor = per_path(edgecolors, i, "rgba(0,0,0,0)")
             linewidth = per_path(linewidths, i, 0)
+            subpaths = []
+            current = []
+            closed = False
+            vi = 0
+            for c in codes:
+                if c == "M":
+                    if current:
+                        subpaths.append((current, closed))
+                    current = [verts[vi]]
+                    closed = False
+                    vi += 1
+                elif c == "Z":
+                    closed = True
+                else:
+                    current.append(verts[vi])
+                    vi += 1
+            if current:
+                subpaths.append((current, closed))
+
+            xs = []
+            ys = []
+            for sub, cl in subpaths:
+                if len(sub) < 2:
+                    continue
+                if xs:
+                    xs.append(None)
+                    ys.append(None)
+                if cl and not np.allclose(sub[0], sub[-1]):
+                    sub = sub + [sub[0]]
+                xs.extend([v[0] for v in sub])
+                ys.extend([v[1] for v in sub])
+
+            if not xs and len(verts) > 0:
+                xs = [v[0] for v in verts]
+                ys = [v[1] for v in verts]
+
             if self.current_is_polar:
                 self.plotly_fig.add_trace(
                     go.Scatterpolar(
-                        theta=np.degrees([v[0] for v in verts]),
-                        r=[v[1] for v in verts],
+                        theta=[np.degrees(x) if x is not None else None for x in xs],
+                        r=ys,
                         mode="lines",
                         line=go.scatterpolar.Line(
                             color=_export_color(edgecolor), width=linewidth
@@ -1178,8 +1220,8 @@ class PlotlyRenderer(Renderer):
                 continue
             self.plotly_fig.add_trace(
                 go.Scatter(
-                    x=self._convert_x_dates([v[0] for v in verts]),
-                    y=[v[1] for v in verts],
+                    x=self._convert_x_dates(xs),
+                    y=ys,
                     mode="lines",
                     line=go.scatter.Line(
                         color=_export_color(edgecolor), width=linewidth
