@@ -836,3 +836,21 @@ def test_quiver_converts():
     assert abs(tip_px[1]) < 1e-6
     # no marker traces
     assert all(t.mode != "markers" for t in plotly_fig.data)
+
+
+def test_fill_converts():
+    """plt.fill polygons convert to filled scatter traces."""
+    x = np.linspace(0, 2 * np.pi, 50)
+    fig, ax = plt.subplots()
+    ax.fill(x, np.sin(x), "g")
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert len(plotly_fig.data) == 1
+    trace = plotly_fig.data[0]
+    assert trace.type == "scatter"
+    assert trace.fill == "toself"
+    assert np.allclose(trace.x, x)
+    assert np.allclose(trace.y, np.sin(x))
+    assert trace.fillcolor == "#007F00"
+    assert trace.line.color == "rgba(0,0,0,0)"

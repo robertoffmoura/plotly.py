@@ -1058,6 +1058,12 @@ class PlotlyRenderer(Renderer):
         elif isinstance(props["mplobj"], mpatches.StepPatch):
             self.msg += "    Drawing a step path\n"
             self._draw_step_path(props)
+        elif (
+            isinstance(props["mplobj"], mpatches.Polygon)
+            and props["coordinates"] == "data"
+        ):
+            self.msg += "    Drawing a filled polygon\n"
+            self._draw_filled_polygon(props)
         elif isinstance(props["mplobj"], mpatches.Wedge):
             self.msg += "    Collecting a pie wedge\n"
             self.current_pie_wedges.append(props["mplobj"])
@@ -1067,6 +1073,49 @@ class PlotlyRenderer(Renderer):
                 "I found a path object that I don't think is part "
                 "of a bar chart. Ignoring."
             )
+
+    def _draw_filled_polygon(self, props):
+        """Draw a matplotlib Polygon patch as a filled scatter trace."""
+        style = props["style"]
+
+        def patch_color(color):
+            if color == "none":
+                return "rgba(0,0,0,0)"
+            if isinstance(color, str):
+                return color
+            r, g, b, a = color
+            return _export_color((r, g, b, a * style["alpha"]))
+
+        verts = props["data"]
+        facecolor = patch_color(style["facecolor"])
+        edgecolor = patch_color(style["edgecolor"])
+        if self.current_is_polar:
+            self.plotly_fig.add_trace(
+                go.Scatterpolar(
+                    theta=np.degrees([v[0] for v in verts]),
+                    r=[v[1] for v in verts],
+                    mode="lines",
+                    line=go.scatterpolar.Line(
+                        color=edgecolor, width=style["edgewidth"]
+                    ),
+                    fill="toself",
+                    fillcolor=facecolor,
+                    subplot=self.current_polar_subplot,
+                )
+            )
+            return
+        self.plotly_fig.add_trace(
+            go.Scatter(
+                x=self._convert_x_dates([v[0] for v in verts]),
+                y=[v[1] for v in verts],
+                mode="lines",
+                line=go.scatter.Line(color=edgecolor, width=style["edgewidth"]),
+                fill="toself",
+                fillcolor=facecolor,
+                xaxis="x{0}".format(self.axis_ct),
+                yaxis="y{0}".format(self.axis_ct),
+            )
+        )
 
     def _draw_step_path(self, props):
         """Draw a matplotlib StepPatch as a step line trace."""
