@@ -382,7 +382,10 @@ GALLERY_ENTRIES = [
     ),
     (
         "figimage",
-        "plt.figimage(np.random.rand(10, 10) * 255)",
+        "Z = np.arange(10000).reshape((100, 100))\n"
+        + "Z[:, 50:] = 1\n"
+        + "plt.figimage(Z, xo=50, yo=50, origin='lower')\n"
+        + "plt.figimage(Z, xo=100, yo=100, alpha=0.8, origin='lower')",
     ),
     (
         "figtext",
