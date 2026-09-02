@@ -1720,3 +1720,25 @@ def test_imshow_png_matches_axes_box_size():
     )
     assert abs(png.shape[1] - ax.bbox.width) <= 1
     assert abs(png.shape[0] - ax.bbox.height) <= 1
+
+
+def test_tick_label_color_exports():
+    """Tick label colors are exported to the plotly tickfont."""
+    fig, ax = plt.subplots()
+    ax.plot([0, 1], [0, 1])
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert plotly_fig.layout.xaxis.tickfont.color == "#000000"
+
+
+def test_dark_tick_label_color_exports():
+    """Dark-background tick label colors are exported to the plotly
+    tickfont."""
+    with plt.style.context("dark_background"):
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1])
+
+        plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert plotly_fig.layout.xaxis.tickfont.color == "#FFFFFF"
