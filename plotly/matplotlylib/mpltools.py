@@ -120,10 +120,10 @@ def merge_color_and_opacity(color, opacity):
 
     rgb_tup = hex_to_rgb(color)
     if opacity is None:
-        return "rgb {}".format(rgb_tup)
+        return "rgb{}".format(rgb_tup)
 
     rgba_tup = rgb_tup + (opacity,)
-    return "rgba {}".format(rgba_tup)
+    return "rgba{}".format(rgba_tup)
 
 
 def convert_va(mpl_va):

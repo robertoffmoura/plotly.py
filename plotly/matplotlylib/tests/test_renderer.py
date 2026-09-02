@@ -233,3 +233,14 @@ def test_semitransparent_axes_background_preserved():
     plotly_fig = tls.mpl_to_plotly(fig)
 
     assert plotly_fig.layout.plot_bgcolor == "rgba(26, 51, 76, 0.4)"
+
+
+def test_line_color_is_valid_plotly_color():
+    """Converted line colors are valid plotly color strings: plotly rejects
+    a space between 'rgba' and the opening parenthesis."""
+    fig, ax = plt.subplots()
+    ax.plot([0, 1], [0, 1], color="red")
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert plotly_fig.data[0].line.color == "rgba(255, 0, 0, 1)"
