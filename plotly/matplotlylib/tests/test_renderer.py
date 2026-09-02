@@ -979,3 +979,25 @@ def test_axline_converts():
     assert abs(shape.x1 - x1) < 1e-9
     assert abs(shape.y0 - y0) < 1e-9
     assert abs(shape.y1 - y1) < 1e-9
+
+
+def test_tick_label_color_exports():
+    """Tick label colors are exported to the plotly tickfont."""
+    fig, ax = plt.subplots()
+    ax.plot([0, 1], [0, 1])
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert plotly_fig.layout.xaxis.tickfont.color == "#000000"
+
+
+def test_dark_tick_label_color_exports():
+    """Dark-background tick label colors are exported to the plotly
+    tickfont."""
+    with plt.style.context("dark_background"):
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1])
+
+        plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert plotly_fig.layout.xaxis.tickfont.color == "#FFFFFF"
