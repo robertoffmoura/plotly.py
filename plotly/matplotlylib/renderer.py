@@ -99,8 +99,8 @@ class PlotlyRenderer(Renderer):
         position of angular value 0 and direction setting the direction
         of positive angles, so both are taken from the matplotlib axes
         to map the two coordinate systems onto each other. Background,
-        grid, and frame colors are taken from the matplotlib axes like
-        they are for cartesian axes.
+        grid, frame, and tick label colors are taken from the matplotlib
+        axes like they are for cartesian axes.
         """
         self.polar_ct += 1
         self.current_polar_subplot = (
@@ -120,6 +120,26 @@ class PlotlyRenderer(Renderer):
             if len(radial_gridlines)
             else ("#b0b0b0", True)
         )
+        angular_fontcolor = (
+            _export_color(props["axes"][0]["fontcolor"])
+            if props.get("axes") and props["axes"][0].get("fontcolor") is not None
+            else (
+                _export_color(ax.xaxis.get_ticklabels()[0].get_color())
+                if ax.xaxis.get_ticklabels()
+                else None
+            )
+        )
+        radial_fontcolor = (
+            _export_color(props["axes"][1]["fontcolor"])
+            if props.get("axes")
+            and len(props["axes"]) > 1
+            and props["axes"][1].get("fontcolor") is not None
+            else (
+                _export_color(ax.yaxis.get_ticklabels()[0].get_color())
+                if ax.yaxis.get_ticklabels()
+                else None
+            )
+        )
         frame = ax.spines.get("polar")
         self.plotly_fig["layout"][self.current_polar_subplot] = go.layout.Polar(
             bgcolor=_export_color(props["axesbg"]),
@@ -128,6 +148,7 @@ class PlotlyRenderer(Renderer):
                 direction=("counterclockwise" if theta_direction >= 0 else "clockwise"),
                 tickvals=[float(t) for t in np.degrees(ax.xaxis.get_majorticklocs())],
                 ticktext=[t.get_text() for t in ax.xaxis.get_majorticklabels()],
+                tickfont=dict(color=angular_fontcolor),
                 showgrid=angular_grid[1],
                 gridcolor=_export_color(angular_grid[0]),
                 showline=frame.get_visible() if frame is not None else True,
@@ -142,6 +163,7 @@ class PlotlyRenderer(Renderer):
                 range=[float(v) for v in ax.get_ylim()],
                 tickvals=[float(t) for t in ax.yaxis.get_majorticklocs()],
                 ticktext=[t.get_text() for t in ax.yaxis.get_majorticklabels()],
+                tickfont=dict(color=radial_fontcolor),
                 showgrid=radial_grid[1],
                 gridcolor=_export_color(radial_grid[0]),
                 showline=False,

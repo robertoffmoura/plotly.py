@@ -636,7 +636,9 @@ def test_polar_plot_converts():
     assert polar.radialaxis.gridcolor == "#b0b0b0"
     assert polar.angularaxis.linecolor == "#000000"
     assert polar.angularaxis.linewidth == 0.8
+    assert polar.angularaxis.tickfont.color == "#000000"
     assert polar.radialaxis.showline is False
+    assert polar.radialaxis.tickfont.color == "#000000"
 
 
 def test_polar_bar_converts():
@@ -1001,3 +1003,43 @@ def test_dark_tick_label_color_exports():
         plotly_fig = tls.mpl_to_plotly(fig)
 
     assert plotly_fig.layout.xaxis.tickfont.color == "#FFFFFF"
+
+
+def test_polar_tick_label_color_exports():
+    """Polar tick label colors are exported to the plotly tickfont."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "polar"})
+    ax.plot([0, 1], [0, 1])
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    polar = plotly_fig.layout.polar
+    assert polar.angularaxis.tickfont.color == "#000000"
+    assert polar.radialaxis.tickfont.color == "#000000"
+
+
+def test_dark_polar_tick_label_color_exports():
+    """Dark-background polar tick label colors are exported to the plotly
+    tickfont."""
+    with plt.style.context("dark_background"):
+        fig, ax = plt.subplots(subplot_kw={"projection": "polar"})
+        ax.plot([0, 1], [0, 1])
+
+        plotly_fig = tls.mpl_to_plotly(fig)
+
+    polar = plotly_fig.layout.polar
+    assert polar.angularaxis.tickfont.color == "#FFFFFF"
+    assert polar.radialaxis.tickfont.color == "#FFFFFF"
+
+
+def test_custom_polar_tick_label_colors_are_preserved():
+    """Custom polar tick label colors are preserved in the plotly tickfont."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "polar"})
+    ax.plot([0, 1], [0, 1])
+    ax.tick_params(axis="x", labelcolor="blue")
+    ax.tick_params(axis="y", labelcolor="green")
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    polar = plotly_fig.layout.polar
+    assert polar.angularaxis.tickfont.color == "#0000FF"
+    assert polar.radialaxis.tickfont.color == "#008000"
