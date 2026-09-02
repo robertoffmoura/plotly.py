@@ -9,24 +9,17 @@ import warnings
 import io
 from . import utils
 
-import numpy as np
-
 import matplotlib
 import matplotlib.axes
 from matplotlib import transforms
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 
 
-def _patched_pie(self, x, *args, **kwargs):
-    self._plotly_pie_values = list(np.asarray(x, dtype=float))
-    return _original_pie(self, x, *args, **kwargs)
-
-
 if getattr(matplotlib.axes.Axes.pie, "__name__", None) != "_patched_pie":
     _original_pie = matplotlib.axes.Axes.pie
 
     def _patched_pie(self, x, *args, **kwargs):
-        self._plotly_pie_values = list(np.asarray(x, dtype=float))
+        self._plotly_pie_values = [float(v) for v in x]
         return _original_pie(self, x, *args, **kwargs)
 
     matplotlib.axes.Axes.pie = _patched_pie
