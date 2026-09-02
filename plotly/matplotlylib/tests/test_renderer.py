@@ -804,3 +804,35 @@ def test_pie_with_labels_converts():
     assert plotly_fig.data[0].labels is None
     assert len(plotly_fig.layout.annotations) == 5
     assert all(a.xref == "x" for a in plotly_fig.layout.annotations)
+
+
+def test_quiver_converts():
+    """Quiver arrows convert to layout annotations with arrows anchored at
+    the arrow tails, pointing to the arrow tips."""
+    x = np.arange(-2, 2.5, 1.0)
+    X, Y = np.meshgrid(x, x)
+    U = np.ones_like(X)
+    V = np.zeros_like(Y)
+    fig, ax = plt.subplots()
+    q = ax.quiver(X, Y, U, V)
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    anns = plotly_fig.layout.annotations
+    assert len(anns) == X.size
+    assert anns[0].showarrow is True
+    assert anns[0].xref == "x"
+    assert anns[0].yref == "y"
+    # the annotation anchor (the arrowhead) sits at the arrow tip and the
+    # pixel offset points back to the tail
+    tip_px = q.get_transform().transform(q.get_paths()[0].vertices[3])
+    tail_px = q.get_offset_transform().transform(q.get_offsets()[0])
+    tip_data = q.get_offset_transform().inverted().transform(tail_px + tip_px)
+    assert abs(anns[0].x - tip_data[0]) < 1e-6
+    assert abs(anns[0].y - tip_data[1]) < 1e-6
+    assert abs(anns[0].ax + tip_px[0]) < 1e-6
+    assert abs(anns[0].ay - tip_px[1]) < 1e-6
+    assert tip_px[0] > 0
+    assert abs(tip_px[1]) < 1e-6
+    # no marker traces
+    assert all(t.mode != "markers" for t in plotly_fig.data)
