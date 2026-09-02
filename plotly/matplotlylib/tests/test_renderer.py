@@ -510,7 +510,8 @@ def test_contour_lines_convert():
 
 
 def test_contourf_bands_render():
-    """Contourf bands (multi-subpath collections) must render as fills."""
+    """Contourf bands (multi-subpath collections) must render as fills with
+    None separating disjoint subpaths."""
     x = np.linspace(-3, 3, 30)
     X, Y = np.meshgrid(x, x)
     fig, ax = plt.subplots()
@@ -518,6 +519,8 @@ def test_contourf_bands_render():
     plotly_fig = tls.mpl_to_plotly(fig)
     filled = [t for t in plotly_fig.data if t.fill == "toself"]
     assert len(filled) > 0
+    assert any(None in t.x for t in filled)
+    assert any(None in t.y for t in filled)
 
 
 def test_axis_linecolor_defaults_to_black():
