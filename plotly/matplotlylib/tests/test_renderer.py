@@ -854,3 +854,27 @@ def test_fill_converts():
     assert np.allclose(trace.y, np.sin(x))
     assert trace.fillcolor == "#007F00"
     assert trace.line.color == "rgba(0,0,0,0)"
+
+
+def test_hexbin_converts():
+    """Hexbin plots convert to hexagon-marker scatter traces."""
+    x = np.random.randn(2000)
+    y = np.random.randn(2000)
+    fig, ax = plt.subplots()
+    hb = ax.hexbin(x, y)
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert len(plotly_fig.data) == 1
+    trace = plotly_fig.data[0]
+    assert trace.type == "scatter"
+    assert trace.mode == "markers"
+    assert len(trace.x) == hb.get_offsets().shape[0]
+    assert trace.marker.symbol == "hexagon2"
+    assert len(trace.marker.color) == len(trace.x)
+    path = hb.get_paths()[0]
+    x0, y0, x1, y1 = path.get_extents().bounds
+    p0 = ax.transData.transform((x0, y0))
+    p1 = ax.transData.transform((x1, y1))
+    expected_size = max(p1[0] - p0[0], p1[1] - p0[1])
+    assert abs(trace.marker.size - expected_size) < 1e-6

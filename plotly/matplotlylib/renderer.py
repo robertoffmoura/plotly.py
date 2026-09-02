@@ -10,6 +10,7 @@ with the matplotlylib package.
 import warnings
 
 import matplotlib.patches as mpatches
+import matplotlib.collections as mcollections
 import matplotlib.quiver as mquiver
 import numpy as np
 import plotly.graph_objs as go
@@ -769,6 +770,14 @@ class PlotlyRenderer(Renderer):
         ):
             self.msg += "    Drawing polar line collection as lines\n"
             self._draw_polar_line_collection(props)
+        elif (
+            isinstance(props["mplobj"], mcollections.PolyCollection)
+            and len(props["paths"]) == 1
+            and len(props["offsets"]) > 1
+            and len(props["styles"]["facecolor"]) == len(props["offsets"])
+        ):
+            self.msg += "    Drawing a hexbin as hexagon markers\n"
+            self._draw_hexbin(props)
         elif props["offset_coordinates"] == "data":
             markerstyle = mpltools.get_markerstyle_from_collection(props)
             scatter_props = {
@@ -796,6 +805,35 @@ class PlotlyRenderer(Renderer):
                 "it yet! Plotly can only import path "
                 "collections linked to 'data' coordinates"
             )
+
+    def _draw_hexbin(self, props):
+        """Draw a hexbin PolyCollection as hexagon-marker scatter points.
+
+        A hexbin is a single hexagon path stamped at every bin offset with a
+        per-bin face color, so it converts to markers at the offsets sized
+        like the hexagon and colored like the mpl bins."""
+        mplobj = props["mplobj"]
+        colors = mpltools.convert_rgba_array(props["styles"]["facecolor"])
+        x0, y0, x1, y1 = mplobj.get_paths()[0].get_extents().bounds
+        p0 = self.current_mpl_ax.transData.transform((x0, y0))
+        p1 = self.current_mpl_ax.transData.transform((x1, y1))
+        size = max(p1[0] - p0[0], p1[1] - p0[1])
+        offsets = mplobj.get_offsets()
+        self.plotly_fig.add_trace(
+            go.Scatter(
+                x=[o[0] for o in offsets],
+                y=[o[1] for o in offsets],
+                mode="markers",
+                marker=go.scatter.Marker(
+                    symbol="hexagon2",
+                    size=size,
+                    color=colors,
+                    line=go.scatter.marker.Line(width=0),
+                ),
+                xaxis="x{0}".format(self.axis_ct),
+                yaxis="y{0}".format(self.axis_ct),
+            )
+        )
 
     def _draw_quiver(self, props):
         """Draw a matplotlib Quiver collection as layout annotations with
