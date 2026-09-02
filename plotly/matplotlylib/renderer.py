@@ -844,14 +844,16 @@ class PlotlyRenderer(Renderer):
         """
         self.msg += "    Attempting to draw image\n"
         style = props["style"]
-        x0, y0, x1, y1 = props["extent"]
+        left, right, bottom, top = props["extent"]
         img = go.layout.Image(
             source="data:image/png;base64,{0}".format(props["imdata"]),
-            x=min(x0, x1),
-            y=min(y0, y1),
-            sizex=abs(x1 - x0),
-            sizey=abs(y1 - y0),
+            x=min(left, right),
+            y=top,
+            sizex=abs(right - left),
+            sizey=abs(top - bottom),
             sizing="stretch",
+            xanchor="left",
+            yanchor="top",
             xref="x{0}".format(self.axis_ct),
             yref="y{0}".format(self.axis_ct),
             opacity=style["alpha"] if style["alpha"] is not None else 1,

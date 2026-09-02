@@ -897,14 +897,30 @@ def test_imshow_converts():
     assert len(plotly_fig.layout.images) == 1
     img = plotly_fig.layout.images[0]
     assert img.source.startswith("data:image/png;base64,")
-    x0, y0, x1, y1 = im.get_extent()
-    assert img.x == min(x0, x1)
-    assert img.y == min(y0, y1)
-    assert img.sizex == abs(x1 - x0)
-    assert img.sizey == abs(y1 - y0)
+    left, right, bottom, top = im.get_extent()
+    assert img.x == min(left, right)
+    assert img.y == top
+    assert img.sizex == abs(right - left)
+    assert img.sizey == abs(top - bottom)
     assert img.sizing == "stretch"
     assert img.xref == "x"
     assert img.yref == "y"
+
+
+def test_imshow_non_square_dimensions():
+    """Non-square images preserve their width and height extents."""
+    data = np.random.rand(30, 50)
+    fig, ax = plt.subplots()
+    im = ax.imshow(data)
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    img = plotly_fig.layout.images[0]
+    left, right, bottom, top = im.get_extent()
+    assert abs(img.sizex - abs(right - left)) < 1e-9
+    assert abs(img.sizey - abs(top - bottom)) < 1e-9
+    assert img.sizex == 50.0
+    assert img.sizey == 30.0
 
 
 def test_imshow_png_matches_axes_box_size():
@@ -926,6 +942,24 @@ def test_imshow_png_matches_axes_box_size():
     )
     assert abs(png.shape[1] - ax.bbox.width) <= 1
     assert abs(png.shape[0] - ax.bbox.height) <= 1
+
+
+def test_pcolorfast_converts():
+    """pcolorfast image converts to a layout image spanning the data extent."""
+    fig, ax = plt.subplots()
+    im = ax.pcolorfast(
+        np.linspace(-3, 3, 11), np.linspace(-3, 3, 11), np.random.rand(10, 10)
+    )
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert len(plotly_fig.layout.images) == 1
+    img = plotly_fig.layout.images[0]
+    left, right, bottom, top = im.get_extent()
+    assert abs(img.sizex - abs(right - left)) < 1e-9
+    assert abs(img.sizey - abs(top - bottom)) < 1e-9
+    assert abs(img.x - min(left, right)) < 1e-9
+    assert abs(img.y - top) < 1e-9
 
 
 def test_axhline_converts():
