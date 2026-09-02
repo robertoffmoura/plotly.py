@@ -230,6 +230,7 @@ class PlotlyRenderer(Renderer):
         )
         self.plotly_fig["layout"]["margin"] = margin
         if not fig.get_axes():
+            self.plotly_fig["layout"].plot_bgcolor = _export_color(props["figbg"])
             self.plotly_fig["layout"]["xaxis"] = dict(visible=False)
             self.plotly_fig["layout"]["yaxis"] = dict(visible=False)
 

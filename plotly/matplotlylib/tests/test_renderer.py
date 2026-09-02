@@ -1007,6 +1007,17 @@ def test_figimage_with_axes_converts():
     assert img.yref == "paper"
 
 
+def test_figimage_dark_background():
+    """figimage under dark_background style preserves black background for both
+    paper_bgcolor and plot_bgcolor."""
+    with plt.style.context("dark_background"):
+        fig = plt.figure()
+        plt.figimage(np.ones((10, 10)))
+        plotly_fig = tls.mpl_to_plotly(fig)
+        assert plotly_fig.layout.paper_bgcolor == "#000000"
+        assert plotly_fig.layout.plot_bgcolor == "#000000"
+
+
 def test_axhline_converts():
     """axhline converts to a layout shape spanning the axes width."""
     fig, ax = plt.subplots()
