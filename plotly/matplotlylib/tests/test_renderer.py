@@ -1332,3 +1332,39 @@ def test_plot3d_scatter_converts():
     assert np.allclose(trace.x, x)
     assert np.allclose(trace.y, y)
     assert np.allclose(trace.z, z)
+
+
+def test_bar3d_converts():
+    """bar3d boxes convert to a mesh3d trace of the box faces.
+
+    Plotly has no bar3d trace type, so the box faces are drawn as a
+    flat-shaded mesh with per-vertex colors."""
+    x = np.arange(2)
+    y = np.arange(3)
+    xs, ys = np.meshgrid(x, y)
+    zs = np.random.rand(2, 3)
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")
+    ax.bar3d(xs.ravel(), ys.ravel(), np.zeros(6), 0.5, 0.5, zs.ravel())
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert len(plotly_fig.data) == 1
+    trace = plotly_fig.data[0]
+    assert trace.type == "mesh3d"
+    # 6 bars x 6 faces x 4 corners, with two triangles per face
+    assert len(trace.x) == 144
+    assert len(trace.i) == 72
+    assert len(trace.vertexcolor) == 144
+    assert trace.flatshading is True
+    # the box corners span each bar's x/y footprint
+    assert sorted(set(round(v, 6) for v in trace.x)) == [0, 0.5, 1, 1.5]
+    assert sorted(set(round(v, 6) for v in trace.y)) == [
+        0,
+        0.5,
+        1,
+        1.5,
+        2,
+        2.5,
+    ]
+    assert min(trace.z) == 0

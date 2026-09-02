@@ -1102,6 +1102,15 @@ class PlotlyRenderer(Renderer):
         ):
             self.msg += "    Drawing polar line collection as lines\n"
             self._draw_polar_line_collection(props)
+        elif self.current_is_3d and isinstance(
+            props["mplobj"], mcollections.PolyCollection
+        ):
+            if not self._draw_bar3d(props):
+                self.msg += "    3d path collection is not bar3d boxes, not drawing\n"
+                warnings.warn(
+                    "3d path collections other than bar3d are not "
+                    "supported yet. Not drawing."
+                )
         elif (
             isinstance(props["mplobj"], mcollections.PolyCollection)
             and len(props["paths"]) == 1
@@ -1169,6 +1178,55 @@ class PlotlyRenderer(Renderer):
                 yaxis="y{0}".format(self.axis_ct),
             )
         )
+
+    def _draw_bar3d(self, props):
+        """Draw a bar3d collection as a mesh3d trace of the box faces.
+
+        matplotlib's bar3d appends the six faces of each bar consecutively.
+        Plotly has no bar3d trace type, so each group of six faces that
+        closes into a box of eight corners is drawn as a flat-shaded mesh.
+        Returns True when the whole collection is such a set of boxes, and
+        False otherwise.
+        """
+        mplobj = props["mplobj"]
+        faces = getattr(mplobj, "_faces", None)
+        if faces is None or len(faces) == 0 or faces.shape[1] != 4:
+            return False
+        if len(faces) % 6 != 0:
+            return False
+        facecolors = mpltools.convert_rgba_array(props["styles"]["facecolor"])
+        if not isinstance(facecolors, list):
+            return False
+        verts = []
+        vertexcolor = []
+        triangles = []
+        for start in range(0, len(faces), 6):
+            box = faces[start : start + 6]
+            corners = np.unique(box.reshape(-1, 3).round(6), axis=0)
+            if len(corners) != 8:
+                return False
+            for face_index, face in enumerate(box):
+                base = len(verts)
+                for vertex in face:
+                    verts.append(vertex)
+                    vertexcolor.append(facecolors[start + face_index])
+                triangles.append((base, base + 1, base + 2))
+                triangles.append((base, base + 2, base + 3))
+        self.plotly_fig.add_trace(
+            go.Mesh3d(
+                x=[v[0] for v in verts],
+                y=[v[1] for v in verts],
+                z=[v[2] for v in verts],
+                i=[t[0] for t in triangles],
+                j=[t[1] for t in triangles],
+                k=[t[2] for t in triangles],
+                vertexcolor=vertexcolor,
+                flatshading=True,
+                scene=self.current_3d_subplot,
+            )
+        )
+        self.msg += "    Heck yeah, I drew that 3d bar chart\n"
+        return True
 
     def _draw_3d_markers(self, props):
         """Draw a 3D path collection (e.g. 3D scatter markers) as a
