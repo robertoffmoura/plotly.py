@@ -90,6 +90,9 @@ class PlotlyRenderer(Renderer):
         self.current_is_polar = False
         self.polar_ct = 0
         self.current_polar_subplot = None
+        self.scene_ct = 0
+        self.current_3d_subplot = None
+        self.current_is_3d = False
         self.mpl_x_bounds = (0, 1)
         self.mpl_y_bounds = (0, 1)
         self.msg = "Initialized PlotlyRenderer\n"
@@ -190,6 +193,73 @@ class PlotlyRenderer(Renderer):
                 showline=False,
             ),
         )
+
+    def _open_3d_axes(self, ax, props):
+        """Create a plotly scene layout object for a matplotlib 3d axes."""
+        self.scene_ct += 1
+        self.current_3d_subplot = (
+            "scene{0}".format(self.scene_ct) if self.scene_ct > 1 else "scene"
+        )
+        bounds = props["bounds"]
+        domain = dict(
+            x=[float(bounds[0]), float(bounds[0] + bounds[2])],
+            y=[float(bounds[1]), float(bounds[1] + bounds[3])],
+        )
+
+        def _axis_dict(axis_name):
+            axis_obj = getattr(ax, axis_name + "axis")
+            lim = getattr(ax, "get_{0}lim".format(axis_name))()
+            label = getattr(ax, "get_{0}label".format(axis_name))()
+            line_color = (
+                _export_color(axis_obj.line.get_color())
+                if hasattr(axis_obj, "line")
+                else "black"
+            )
+            tick_color = (
+                _export_color(axis_obj.get_ticklabels()[0].get_color())
+                if axis_obj.get_ticklabels()
+                else None
+            )
+            pane_color = (
+                _export_color(axis_obj.pane.get_facecolor())
+                if hasattr(axis_obj, "pane")
+                else None
+            )
+            d = dict(
+                range=[float(lim[0]), float(lim[1])],
+                showline=True,
+                linecolor=line_color,
+            )
+            if label:
+                d["title"] = dict(text=label)
+            if tick_color:
+                d["tickfont"] = dict(color=tick_color)
+            if pane_color:
+                d["backgroundcolor"] = pane_color
+                d["showbackground"] = getattr(
+                    axis_obj.pane, "get_visible", lambda: True
+                )()
+            return d
+
+        scene_kwargs = dict(
+            domain=domain,
+            bgcolor=_export_color(props["axesbg"]),
+            xaxis=_axis_dict("x"),
+            yaxis=_axis_dict("y"),
+            zaxis=_axis_dict("z"),
+        )
+        if hasattr(ax, "get_box_aspect"):
+            aspect = ax.get_box_aspect()
+            scene_kwargs["aspectmode"] = "manual"
+            scene_kwargs["aspectratio"] = dict(
+                x=float(aspect[0]),
+                y=float(aspect[1]),
+                z=float(aspect[2]),
+            )
+        self.plotly_fig["layout"][self.current_3d_subplot] = go.layout.Scene(
+            **scene_kwargs
+        )
+        self.plotly_fig["layout"].plot_bgcolor = _export_color(props["axesbg"])
 
     def open_figure(self, fig, props):
         """Creates a new figure by beginning to fill out layout dict.
@@ -294,6 +364,11 @@ class PlotlyRenderer(Renderer):
             self.msg += "  Opening polar axes\n"
             self._open_polar_axes(ax, props)
             return
+        self.current_is_3d = getattr(ax, "name", None) == "3d"
+        if self.current_is_3d:
+            self.msg += "  Opening 3d axes\n"
+            self._open_3d_axes(ax, props)
+            return
         self.axis_ct += 1
         # update plot background with the axes background from mpl
         self.plotly_fig["layout"].plot_bgcolor = _export_color(props["axesbg"])
@@ -364,6 +439,7 @@ class PlotlyRenderer(Renderer):
         self.msg += "  Closing axes\n"
         self.x_is_mpl_date = False
         self.current_is_polar = False
+        self.current_is_3d = False
 
     def _draw_pie(self):
         """Draw collected pie wedges as a plotly Pie trace.
@@ -735,6 +811,48 @@ class PlotlyRenderer(Renderer):
                     )
                 )
                 self.msg += "    Heck yeah, I drew that line on polar axes\n"
+                return
+            if self.current_is_3d:
+                if hasattr(props["mplobj"], "get_data_3d"):
+                    x, y, z = props["mplobj"].get_data_3d()
+                else:
+                    x = [xy_pair[0] for xy_pair in props["data"]]
+                    y = [xy_pair[1] for xy_pair in props["data"]]
+                    z = [0] * len(x)
+                self.plotly_fig.add_trace(
+                    go.Scatter3d(
+                        mode=mode,
+                        name=label,
+                        x=list(x),
+                        y=list(y),
+                        z=list(z),
+                        scene=self.current_3d_subplot,
+                        line=(
+                            go.scatter3d.Line(
+                                color=line.color,
+                                width=line.width,
+                                dash=line.dash,
+                            )
+                            if props["linestyle"]
+                            else None
+                        ),
+                        marker=(
+                            go.scatter3d.Marker(
+                                opacity=marker.opacity,
+                                color=marker.color,
+                                symbol=marker.symbol,
+                                size=marker.size,
+                                line=dict(
+                                    color=marker.line.color,
+                                    width=marker.line.width,
+                                ),
+                            )
+                            if props["markerstyle"]
+                            else None
+                        ),
+                    )
+                )
+                self.msg += "    Heck yeah, I drew that line on 3d axes\n"
                 return
             marked_line = go.Scatter(
                 mode=mode,
@@ -1460,6 +1578,9 @@ class PlotlyRenderer(Renderer):
         elif props["text_type"] == "ylabel":
             self.msg += "      Text object is a ylabel\n"
             self.draw_ylabel(**props)
+        elif props["text_type"] == "zlabel":
+            self.msg += "      Text object is a zlabel\n"
+            self.draw_zlabel(**props)
         elif props["text_type"] == "title":
             self.msg += "      Text object is a title\n"
             self.draw_title(**props)
@@ -1625,6 +1746,17 @@ class PlotlyRenderer(Renderer):
 
         """
         self.msg += "        Adding xlabel\n"
+        if self.current_is_3d:
+            self.plotly_fig["layout"][self.current_3d_subplot]["xaxis"]["title"] = dict(
+                text=str(props["text"])
+            )
+            title_font = dict(
+                size=props["style"]["fontsize"], color=props["style"]["color"]
+            )
+            self.plotly_fig["layout"][self.current_3d_subplot]["xaxis"][
+                "title_font"
+            ] = title_font
+            return
         axis_key = "xaxis{0}".format(self.axis_ct)
         self.plotly_fig["layout"][axis_key]["title"] = str(props["text"])
         title_font = dict(
@@ -1656,12 +1788,37 @@ class PlotlyRenderer(Renderer):
 
         """
         self.msg += "        Adding ylabel\n"
+        if self.current_is_3d:
+            self.plotly_fig["layout"][self.current_3d_subplot]["yaxis"]["title"] = dict(
+                text=str(props["text"])
+            )
+            title_font = dict(
+                size=props["style"]["fontsize"], color=props["style"]["color"]
+            )
+            self.plotly_fig["layout"][self.current_3d_subplot]["yaxis"][
+                "title_font"
+            ] = title_font
+            return
         axis_key = "yaxis{0}".format(self.axis_ct)
         self.plotly_fig["layout"][axis_key]["title"] = props["text"]
         title_font = dict(
             size=props["style"]["fontsize"], color=props["style"]["color"]
         )
         self.plotly_fig["layout"][axis_key]["title_font"] = title_font
+
+    def draw_zlabel(self, **props):
+        """Add a zaxis label to the current 3d subplot in layout dictionary."""
+        self.msg += "        Adding zlabel\n"
+        if self.current_is_3d:
+            self.plotly_fig["layout"][self.current_3d_subplot]["zaxis"]["title"] = dict(
+                text=str(props["text"])
+            )
+            title_font = dict(
+                size=props["style"]["fontsize"], color=props["style"]["color"]
+            )
+            self.plotly_fig["layout"][self.current_3d_subplot]["zaxis"][
+                "title_font"
+            ] = title_font
 
     def resize(self):
         """Revert figure layout to allow plotly to resize.
