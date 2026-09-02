@@ -66,6 +66,7 @@ class PlotlyRenderer(Renderer):
         self.current_mpl_ax = None
         self.bar_containers = None
         self.current_bars = []
+        self.current_pie_wedges = []
         self.axis_ct = 0
         self.x_is_mpl_date = False
         self.current_is_polar = False
@@ -237,6 +238,7 @@ class PlotlyRenderer(Renderer):
             if c.__class__.__name__ == "BarContainer"
         ]
         self.current_bars = []
+        self.current_pie_wedges = []
         self.current_is_polar = getattr(ax, "name", None) == "polar"
         if self.current_is_polar:
             self.msg += "  Opening polar axes\n"
@@ -308,9 +310,72 @@ class PlotlyRenderer(Renderer):
 
         """
         self.draw_bars(self.current_bars)
+        self._draw_pie()
         self.msg += "  Closing axes\n"
         self.x_is_mpl_date = False
         self.current_is_polar = False
+
+    def _draw_pie(self):
+        """Draw collected pie wedges as a plotly Pie trace.
+
+        matplotlib pie wedges run counterclockwise from 3 o'clock with
+        angles measured in degrees; the plotly pie runs clockwise from
+        12 o'clock, so the wedge order is reversed and the start angle is
+        rotated to keep the same geometry.
+        """
+        wedges = self.current_pie_wedges
+        if not wedges:
+            return
+        complete = (
+            all(w.center == wedges[0].center for w in wedges)
+            and all(w.r == wedges[0].r for w in wedges)
+            and abs(sum(abs(w.theta2 - w.theta1) for w in wedges) - 360) < 1e-6
+        )
+        if not complete:
+            self.msg += "    Wedge patches don't form a pie, not drawing\n"
+            for _ in wedges:
+                warnings.warn(
+                    "I found a path object that I don't think is part "
+                    "of a bar chart. Ignoring."
+                )
+            return
+        rotation = (-wedges[0].theta1 - 270) % 360
+        if rotation > 180:
+            rotation -= 360
+        values = [abs(w.theta2 - w.theta1) for w in wedges][::-1]
+        colors = [_export_color(w.get_facecolor()) for w in wedges][::-1]
+        edge = wedges[0]
+        # fit the pie circle to the mpl wedge radius and center within the
+        # axes data limits so it is the same size as the mpl pie
+        ax = self.current_mpl_ax
+        xlim = ax.get_xlim()
+        ylim = ax.get_ylim()
+        cx = (edge.center[0] - xlim[0]) / (xlim[1] - xlim[0])
+        cy = (edge.center[1] - ylim[0]) / (ylim[1] - ylim[0])
+        sx = 2 * edge.r / (xlim[1] - xlim[0])
+        sy = 2 * edge.r / (ylim[1] - ylim[0])
+        domain = go.pie.Domain(
+            x=[max(0.0, cx - sx / 2), min(1.0, cx + sx / 2)],
+            y=[max(0.0, cy - sy / 2), min(1.0, cy + sy / 2)],
+        )
+        trace = go.Pie(
+            values=values,
+            sort=False,
+            rotation=rotation,
+            direction="clockwise",
+            showlegend=False,
+            textinfo="none",
+            domain=domain,
+            marker=go.pie.Marker(
+                colors=colors,
+                line=go.pie.marker.Line(
+                    color=_export_color(edge.get_edgecolor()),
+                    width=edge.get_linewidth(),
+                ),
+            ),
+        )
+        self.plotly_fig.add_trace(trace)
+        self.msg += "    Heck yeah, I drew that pie chart\n"
 
     def open_legend(self, legend, props):
         """Enable Plotly's native legend when matplotlib legend is detected.
@@ -922,6 +987,9 @@ class PlotlyRenderer(Renderer):
         elif isinstance(props["mplobj"], mpatches.StepPatch):
             self.msg += "    Drawing a step path\n"
             self._draw_step_path(props)
+        elif isinstance(props["mplobj"], mpatches.Wedge):
+            self.msg += "    Collecting a pie wedge\n"
+            self.current_pie_wedges.append(props["mplobj"])
         else:
             self.msg += "    This path isn't a bar, not drawing\n"
             warnings.warn(

@@ -747,3 +747,46 @@ def test_polar_annotation_converts():
     y = (y_px - layout.margin.b) / (layout.height - layout.margin.b - layout.margin.t)
     assert abs(ann.x - x) < 1e-6
     assert abs(ann.y - y) < 1e-6
+
+
+def test_pie_converts():
+    """Pie charts convert to a pie trace with the same wedge geometry.
+
+    matplotlib pie wedges run counterclockwise from 3 o'clock; the plotly
+    pie runs clockwise from 12 o'clock, so the wedge order is reversed and
+    the start angle is rotated."""
+    fig, ax = plt.subplots()
+    wedges, _ = ax.pie([3, 5, 2, 4, 6])
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert len(plotly_fig.data) == 1
+    trace = plotly_fig.data[0]
+    assert trace.type == "pie"
+    assert np.allclose(trace.values, [108, 72, 36, 90, 54])
+    assert trace.rotation == 90
+    assert trace.direction == "clockwise"
+    assert trace.sort is False
+    assert trace.showlegend is False
+    assert trace.textinfo == "none"
+    assert list(trace.marker.colors) == [
+        "#9467BD",
+        "#D62728",
+        "#2CA02C",
+        "#FF7F0E",
+        "#1F77B4",
+    ]
+
+
+def test_pie_with_labels_converts():
+    """Pie labels stay as data-referenced annotations and the pie trace does
+    not draw plotly-native labels."""
+    fig, ax = plt.subplots()
+    ax.pie([3, 5, 2, 4, 6], labels=["a", "b", "c", "d", "e"])
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert len(plotly_fig.data) == 1
+    assert plotly_fig.data[0].labels is None
+    assert len(plotly_fig.layout.annotations) == 5
+    assert all(a.xref == "x" for a in plotly_fig.layout.annotations)
