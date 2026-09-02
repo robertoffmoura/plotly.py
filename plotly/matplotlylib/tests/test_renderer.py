@@ -768,6 +768,7 @@ def test_pie_converts():
     assert trace.direction == "clockwise"
     assert trace.sort is False
     assert trace.showlegend is False
+    assert trace.name == ""
     assert trace.textinfo == "none"
     assert trace.hovertemplate == "%{value}<br>%{percent}"
     assert list(trace.marker.colors) == [
