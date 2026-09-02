@@ -878,3 +878,24 @@ def test_hexbin_converts():
     p1 = ax.transData.transform((x1, y1))
     expected_size = max(p1[0] - p0[0], p1[1] - p0[1])
     assert abs(trace.marker.size - expected_size) < 1e-6
+
+
+def test_imshow_converts():
+    """imshow images convert to plotly layout images."""
+    data = np.random.rand(64, 64)
+    fig, ax = plt.subplots()
+    im = ax.imshow(data)
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert len(plotly_fig.data) == 0
+    assert len(plotly_fig.layout.images) == 1
+    img = plotly_fig.layout.images[0]
+    assert img.source.startswith("data:image/png;base64,")
+    x0, y0, x1, y1 = im.get_extent()
+    assert img.x == min(x0, x1)
+    assert img.y == min(y0, y1)
+    assert img.sizex == abs(x1 - x0)
+    assert img.sizey == abs(y1 - y0)
+    assert img.xref == "x"
+    assert img.yref == "y"

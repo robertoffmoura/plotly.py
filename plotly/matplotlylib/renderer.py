@@ -714,18 +714,27 @@ class PlotlyRenderer(Renderer):
             )
 
     def draw_image(self, **props):
-        """Draw image.
+        """Draw an mpl image as a plotly layout image.
 
-        Not implemented yet!
-
+        The exporter renders the mpl image to a base64-encoded PNG, which is
+        placed in the axes at the image extent in data coordinates.
         """
         self.msg += "    Attempting to draw image\n"
-        self.msg += "    Not drawing image\n"
-        warnings.warn(
-            "Aw. Snap! You're gonna have to hold off on "
-            "the selfies for now. Plotly can't import "
-            "images from matplotlib yet!"
+        style = props["style"]
+        x0, y0, x1, y1 = props["extent"]
+        img = go.layout.Image(
+            source="data:image/png;base64,{0}".format(props["imdata"]),
+            x=min(x0, x1),
+            y=min(y0, y1),
+            sizex=abs(x1 - x0),
+            sizey=abs(y1 - y0),
+            xref="x{0}".format(self.axis_ct),
+            yref="y{0}".format(self.axis_ct),
+            opacity=style["alpha"] if style["alpha"] is not None else 1,
+            layer="below",
         )
+        self.plotly_fig["layout"]["images"] += (img,)
+        self.msg += "    Heck yeah, I drew that image\n"
 
     def draw_path_collection(self, **props):
         """Add a path collection to data list as a scatter plot.
