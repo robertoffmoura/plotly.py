@@ -66,7 +66,12 @@ class Exporter(object):
 
     @staticmethod
     def process_transform(
-        transform, ax=None, data=None, return_trans=False, force_trans=None
+        transform,
+        ax=None,
+        data=None,
+        return_trans=False,
+        force_trans=None,
+        fig=None,
     ):
         """Process the transform and convert data to figure or data coordinates
 
@@ -82,6 +87,8 @@ class Exporter(object):
             If true, return the final transform of the data
         force_trans : matplotlib.transform instance (optional)
             If supplied, first force the data to this transform
+        fig : matplotlib Figure object (optional)
+            The figure the data is associated with
 
         Returns
         -------
@@ -107,16 +114,23 @@ class Exporter(object):
             transform = force_trans
 
         code = "display"
+        trans_list = []
         if ax is not None:
-            for c, trans in [
-                ("data", ax.transData),
-                ("axes", ax.transAxes),
-                ("figure", ax.figure.transFigure),
-                ("display", transforms.IdentityTransform()),
-            ]:
-                if transform.contains_branch(trans):
-                    code, transform = (c, transform - trans)
-                    break
+            trans_list.extend(
+                [
+                    ("data", ax.transData),
+                    ("axes", ax.transAxes),
+                    ("figure", ax.figure.transFigure),
+                ]
+            )
+        elif fig is not None:
+            trans_list.append(("figure", fig.transFigure))
+        trans_list.append(("display", transforms.IdentityTransform()))
+
+        for c, trans in trans_list:
+            if transform.contains_branch(trans):
+                code, transform = (c, transform - trans)
+                break
 
         if data is not None:
             if return_trans:
@@ -131,9 +145,12 @@ class Exporter(object):
 
     def crawl_fig(self, fig):
         """Crawl the figure and process all axes"""
+        self.fig = fig
         with self.renderer.draw_figure(fig=fig, props=utils.get_figure_properties(fig)):
             for ax in fig.axes:
                 self.crawl_ax(ax)
+            for text in fig.texts:
+                self.draw_text(None, text)
             for image in fig.images:
                 self.draw_image(None, image)
 
@@ -231,8 +248,13 @@ class Exporter(object):
         if content:
             transform = text.get_transform()
             position = text.get_position()
+            fig = (
+                ax.figure
+                if ax is not None
+                else getattr(text, "figure", getattr(self, "fig", None))
+            )
             coords, position = self.process_transform(
-                transform, ax, position, force_trans=force_trans
+                transform, ax, position, force_trans=force_trans, fig=fig
             )
             style = utils.get_text_style(text)
             self.renderer.draw_text(
