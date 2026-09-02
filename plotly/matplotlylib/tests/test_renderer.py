@@ -705,3 +705,20 @@ def test_polar_errorbar_caps_converts():
     markers = [t for t in plotly_fig.data if t.mode == "markers"]
     assert len(markers) == 1
     assert markers[0].type == "scatterpolar"
+
+
+def test_polar_angular_errorbar_is_an_arc():
+    """Angular error bars curve along a constant radius instead of being
+    drawn as straight chords."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "polar"})
+    ax.errorbar([0.5], [0.5], xerr=0.3, fmt="o")
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    lines = [t for t in plotly_fig.data if t.mode == "lines"]
+    assert len(lines) == 1
+    arc = lines[0]
+    assert len(arc.theta) > 10
+    assert np.allclose(arc.r, [0.5] * len(arc.r))
+    assert np.allclose(arc.theta[0], np.degrees(0.2))
+    assert np.allclose(arc.theta[-1], np.degrees(0.8))

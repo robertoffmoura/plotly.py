@@ -796,10 +796,19 @@ class PlotlyRenderer(Renderer):
         for i, (verts, codes) in enumerate(props["paths"]):
             color = per_segment(edgecolors, i, "rgba(0,0,0,0)")
             width = per_segment(linewidths, i, 1)
+            theta = []
+            r = []
+            for p0, p1 in zip(verts, verts[1:]):
+                dtheta = np.degrees(p1[0] - p0[0])
+                steps = max(1, int(np.ceil(abs(dtheta) / 2)))
+                for k in range(steps + 1):
+                    fraction = k / steps
+                    theta.append(np.degrees(p0[0] + fraction * (p1[0] - p0[0])))
+                    r.append(p0[1] + fraction * (p1[1] - p0[1]))
             self.plotly_fig.add_trace(
                 go.Scatterpolar(
-                    theta=np.degrees([v[0] for v in verts]),
-                    r=[v[1] for v in verts],
+                    theta=theta,
+                    r=r,
                     mode="lines",
                     line=go.scatterpolar.Line(color=_export_color(color), width=width),
                     subplot=self.current_polar_subplot,
@@ -817,7 +826,7 @@ class PlotlyRenderer(Renderer):
         ax = self.current_mpl_ax
         display_point = ax.transData.transform(xy_pair)
         verts = [
-            ax.transData.inverted().transform(display_point + [vx, vy])
+            ax.transData.inverted().transform(display_point + [vx, -vy])
             for vx, vy in props["markerstyle"]["markerpath"][0]
         ]
         self.plotly_fig.add_trace(
