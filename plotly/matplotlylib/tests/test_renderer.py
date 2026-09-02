@@ -1383,3 +1383,24 @@ def test_bar3d_disables_mesh_lighting():
     assert trace.lighting.ambient == 1.0
     assert trace.lighting.diffuse == 0.0
     assert trace.lighting.specular == 0.0
+
+
+def test_bar3d_face_colors_follow_faces():
+    """bar3d face colors stay aligned with their faces (mpl returns the
+    colors depth-sorted, which would scramble them)."""
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")
+    ax.bar3d([0, 5], [0, 5], [0, 0], 1, 1, 1, color=["red", "blue"])
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    trace = plotly_fig.data[0]
+    colors = trace.vertexcolor
+
+    def rgb(color):
+        return tuple(int(x) for x in color[5:-1].split(",")[:3])
+
+    first_bar = [rgb(c) for c in colors[:24]]
+    second_bar = [rgb(c) for c in colors[24:]]
+    assert all(r > b for r, g, b in first_bar)
+    assert all(b > r for r, g, b in second_bar)

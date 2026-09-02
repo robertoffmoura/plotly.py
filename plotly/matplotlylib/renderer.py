@@ -1194,7 +1194,12 @@ class PlotlyRenderer(Renderer):
             return False
         if len(faces) % 6 != 0:
             return False
-        facecolors = mpltools.convert_rgba_array(props["styles"]["facecolor"])
+        # _facecolor3d holds the (possibly shaded) face colors in the same
+        # order as _faces; get_facecolors() returns them depth-sorted
+        colors3d = getattr(mplobj, "_facecolor3d", None)
+        if colors3d is None or len(colors3d) != len(faces):
+            return False
+        facecolors = mpltools.convert_rgba_array(colors3d)
         if not isinstance(facecolors, list):
             return False
         verts = []
@@ -1224,9 +1229,7 @@ class PlotlyRenderer(Renderer):
                 flatshading=True,
                 # matplotlib shades the faces itself, so disable plotly's
                 # lighting to keep the colors as-is
-                lighting=go.mesh3d.Lighting(
-                    ambient=1.0, diffuse=0.0, specular=0.0
-                ),
+                lighting=go.mesh3d.Lighting(ambient=1.0, diffuse=0.0, specular=0.0),
                 scene=self.current_3d_subplot,
             )
         )
