@@ -1110,6 +1110,9 @@ class PlotlyRenderer(Renderer):
         ):
             self.msg += "    Drawing a hexbin as hexagon markers\n"
             self._draw_hexbin(props)
+        elif self.current_is_3d and hasattr(props["mplobj"], "_offsets3d"):
+            self.msg += "    Drawing a 3d path collection as markers\n"
+            self._draw_3d_markers(props)
         elif props["offset_coordinates"] == "data":
             markerstyle = mpltools.get_markerstyle_from_collection(props)
             scatter_props = {
@@ -1166,6 +1169,44 @@ class PlotlyRenderer(Renderer):
                 yaxis="y{0}".format(self.axis_ct),
             )
         )
+
+    def _draw_3d_markers(self, props):
+        """Draw a 3D path collection (e.g. 3D scatter markers) as a
+        Scatter3d marker trace."""
+        mplobj = props["mplobj"]
+        xs, ys, zs = mplobj._offsets3d
+        markerstyle = mpltools.get_markerstyle_from_collection(props)
+        color = markerstyle["facecolor"]
+        if isinstance(color, list) and len(set(color)) == 1:
+            color = color[0]
+        size = markerstyle["markersize"]
+        if isinstance(size, list) and len(set(size)) == 1:
+            size = size[0]
+        edgecolor = markerstyle["edgecolor"]
+        if isinstance(edgecolor, list) and len(set(edgecolor)) == 1:
+            edgecolor = edgecolor[0]
+        edgewidth = markerstyle["edgewidth"]
+        alpha = props["styles"]["alpha"]
+        self.plotly_fig.add_trace(
+            go.Scatter3d(
+                mode="markers",
+                x=list(xs),
+                y=list(ys),
+                z=list(zs),
+                scene=self.current_3d_subplot,
+                marker=go.scatter3d.Marker(
+                    opacity=alpha if alpha is not None else 1,
+                    color=color,
+                    symbol=mpltools.convert_symbol(markerstyle["marker"]),
+                    size=size,
+                    line=dict(
+                        color=edgecolor,
+                        width=edgewidth,
+                    ),
+                ),
+            )
+        )
+        self.msg += "    Heck yeah, I drew that 3d scatter\n"
 
     def _draw_quiver(self, props):
         """Draw a matplotlib Quiver collection as layout annotations with

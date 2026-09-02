@@ -1312,3 +1312,23 @@ def test_custom_polar_tick_label_colors_are_preserved():
     polar = plotly_fig.layout.polar
     assert polar.angularaxis.tickfont.color == "#0000FF"
     assert polar.radialaxis.tickfont.color == "#008000"
+
+
+def test_plot3d_scatter_converts():
+    """3D scatter markers convert to scatter3d marker traces."""
+    x = np.random.rand(20)
+    y = np.random.rand(20)
+    z = np.random.rand(20)
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")
+    ax.scatter(x, y, z)
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert len(plotly_fig.data) == 1
+    trace = plotly_fig.data[0]
+    assert trace.type == "scatter3d"
+    assert trace.mode == "markers"
+    assert np.allclose(trace.x, x)
+    assert np.allclose(trace.y, y)
+    assert np.allclose(trace.z, z)
