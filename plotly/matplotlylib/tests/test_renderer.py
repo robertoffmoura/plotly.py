@@ -722,3 +722,28 @@ def test_polar_angular_errorbar_is_an_arc():
     assert np.allclose(arc.r, [0.5] * len(arc.r))
     assert np.allclose(arc.theta[0], np.degrees(0.2))
     assert np.allclose(arc.theta[-1], np.degrees(0.8))
+
+
+def test_polar_annotation_converts():
+    """Annotations on polar axes convert to paper-referenced layout
+    annotations, since plotly polar subplots have no cartesian axes to
+    reference."""
+    fig, ax = plt.subplots(subplot_kw={"projection": "polar"})
+    ax.plot([0, np.pi / 4], [0.2, 0.8])
+    ax.annotate("polar annotation", xy=(np.pi / 4, 0.8))
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert len(plotly_fig.layout.annotations) == 1
+    ann = plotly_fig.layout.annotations[0]
+    assert ann.text == "polar annotation"
+    assert ann.xref == "paper"
+    assert ann.yref == "paper"
+    assert ann.showarrow is False
+    text = ax.texts[0]
+    x_px, y_px = text.get_transform().transform(text.get_position())
+    layout = plotly_fig.layout
+    x = (x_px - layout.margin.l) / (layout.width - layout.margin.l - layout.margin.r)
+    y = (y_px - layout.margin.b) / (layout.height - layout.margin.b - layout.margin.t)
+    assert abs(ann.x - x) < 1e-6
+    assert abs(ann.y - y) < 1e-6

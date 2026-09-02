@@ -1041,18 +1041,10 @@ class PlotlyRenderer(Renderer):
                 self.msg += "        Text object is linked to 'data' coordinates\n"
                 x, y = props["position"]
                 axis_ct = self.axis_ct
-                xaxis = self.plotly_fig["layout"]["xaxis{0}".format(axis_ct)]
-                yaxis = self.plotly_fig["layout"]["yaxis{0}".format(axis_ct)]
-                if (
-                    xaxis["range"][0] < x < xaxis["range"][1]
-                    and yaxis["range"][0] < y < yaxis["range"][1]
-                ):
-                    xref = "x{0}".format(self.axis_ct)
-                    yref = "y{0}".format(self.axis_ct)
-                else:
+                if self.current_is_polar:
                     self.msg += (
-                        "            Text object is outside "
-                        "plotting area, making 'paper' reference.\n"
+                        "        Polar axes have no cartesian axes, "
+                        "making 'paper' reference.\n"
                     )
                     x_px, y_px = (
                         props["mplobj"].get_transform().transform(props["position"])
@@ -1062,6 +1054,28 @@ class PlotlyRenderer(Renderer):
                     )
                     xref = "paper"
                     yref = "paper"
+                else:
+                    xaxis = self.plotly_fig["layout"]["xaxis{0}".format(axis_ct)]
+                    yaxis = self.plotly_fig["layout"]["yaxis{0}".format(axis_ct)]
+                    if (
+                        xaxis["range"][0] < x < xaxis["range"][1]
+                        and yaxis["range"][0] < y < yaxis["range"][1]
+                    ):
+                        xref = "x{0}".format(self.axis_ct)
+                        yref = "y{0}".format(self.axis_ct)
+                    else:
+                        self.msg += (
+                            "            Text object is outside "
+                            "plotting area, making 'paper' reference.\n"
+                        )
+                        x_px, y_px = (
+                            props["mplobj"].get_transform().transform(props["position"])
+                        )
+                        x, y = mpltools.display_to_paper(
+                            x_px, y_px, self.plotly_fig["layout"]
+                        )
+                        xref = "paper"
+                        yref = "paper"
                 xanchor = props["style"]["halign"]  # no difference here!
                 yanchor = mpltools.convert_va(props["style"]["valign"])
             annotation = go.layout.Annotation(
