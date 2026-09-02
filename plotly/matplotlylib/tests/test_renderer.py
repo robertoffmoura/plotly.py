@@ -1018,6 +1018,52 @@ def test_figimage_dark_background():
         assert plotly_fig.layout.plot_bgcolor == "#000000"
 
 
+def test_figtext_converts():
+    """figtext places text directly on the figure as paper-referenced annotation."""
+    fig = plt.figure()
+    plt.figtext(0.5, 0.5, "hello")
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert len(plotly_fig.layout.annotations) == 1
+    ann = plotly_fig.layout.annotations[0]
+    assert ann.text == "hello"
+    assert ann.xref == "paper"
+    assert ann.yref == "paper"
+    assert abs(ann.x - 0.5) < 1e-6
+    assert abs(ann.y - 0.5) < 1e-6
+
+
+def test_figtext_with_axes_converts():
+    """figtext converts alongside regular subplots."""
+    fig, ax = plt.subplots()
+    ax.plot([0, 1], [0, 1])
+    plt.figtext(0.5, 0.5, "center of figure")
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert len(plotly_fig.data) == 1
+    assert len(plotly_fig.layout.annotations) == 1
+    ann = plotly_fig.layout.annotations[0]
+    assert ann.text == "center of figure"
+    assert ann.xref == "paper"
+    assert ann.yref == "paper"
+
+
+def test_figtext_dark_background():
+    """figtext under dark_background style preserves white text color and dark backgrounds."""
+    with plt.style.context("dark_background"):
+        fig = plt.figure()
+        plt.figtext(0.5, 0.5, "hello")
+        plotly_fig = tls.mpl_to_plotly(fig)
+        assert len(plotly_fig.layout.annotations) == 1
+        ann = plotly_fig.layout.annotations[0]
+        assert ann.font.color == "#FFFFFF"
+        assert plotly_fig.layout.paper_bgcolor == "#000000"
+        assert plotly_fig.layout.plot_bgcolor == "#000000"
+
+
+
 def test_axhline_converts():
     """axhline converts to a layout shape spanning the axes width."""
     fig, ax = plt.subplots()
