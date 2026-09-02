@@ -779,16 +779,16 @@ def test_pie_converts():
     ]
 
 
-def test_pie_without_captured_values_recovers_integers():
-    """Figures created before the pie value capture hook is installed fall
-    back to recovering integer pie values from the wedge angle spans."""
+def test_pie_without_captured_values_uses_angle_spans():
+    """Figures created without the pie value capture hook fall back to
+    wedge angle spans as slice values."""
     fig, ax = plt.subplots()
     ax.pie([3, 5, 2, 4, 6])
     del ax._plotly_pie_values
 
     plotly_fig = tls.mpl_to_plotly(fig)
 
-    assert np.allclose(plotly_fig.data[0].values, [6, 4, 2, 5, 3])
+    assert np.allclose(plotly_fig.data[0].values, [108, 72, 36, 90, 54])
 
 
 def test_pie_with_labels_converts():

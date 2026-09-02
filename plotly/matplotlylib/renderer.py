@@ -322,9 +322,8 @@ class PlotlyRenderer(Renderer):
         angles measured in degrees; the plotly pie runs clockwise from
         12 o'clock, so the wedge order is reversed and the start angle is
         rotated to keep the same geometry. Slice values are the data passed
-        to pie(), captured by the exporter hook; for figures created before
-        the hook was installed, integer values are recovered from the wedge
-        angle spans.
+        to pie(), captured by the exporter hook; without the hook the wedge
+        angle spans are used instead.
         """
         wedges = self.current_pie_wedges
         if not wedges:
@@ -350,12 +349,6 @@ class PlotlyRenderer(Renderer):
         values = getattr(self.current_mpl_ax, "_plotly_pie_values", None)
         if values is None:
             values = [abs(w.theta2 - w.theta1) for w in wedges]
-            # recover integer pie values from the wedge angle spans
-            rounded = [round(v) for v in values]
-            if all(abs(v - r) < 1e-6 for v, r in zip(values, rounded)):
-                divisor = np.gcd.reduce(rounded)
-                if divisor > 1 and all(r % divisor == 0 for r in rounded):
-                    values = [r // divisor for r in rounded]
         values = values[::-1]
         colors = [_export_color(w.get_facecolor()) for w in wedges][::-1]
         edge = wedges[0]
