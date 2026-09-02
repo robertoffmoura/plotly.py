@@ -763,12 +763,13 @@ def test_pie_converts():
     assert len(plotly_fig.data) == 1
     trace = plotly_fig.data[0]
     assert trace.type == "pie"
-    assert np.allclose(trace.values, [108, 72, 36, 90, 54])
+    assert np.allclose(trace.values, [6, 4, 2, 5, 3])
     assert trace.rotation == 90
     assert trace.direction == "clockwise"
     assert trace.sort is False
     assert trace.showlegend is False
     assert trace.textinfo == "none"
+    assert trace.hovertemplate == "%{value}<br>%{percent}"
     assert list(trace.marker.colors) == [
         "#9467BD",
         "#D62728",
@@ -776,6 +777,18 @@ def test_pie_converts():
         "#FF7F0E",
         "#1F77B4",
     ]
+
+
+def test_pie_without_captured_values_recovers_integers():
+    """Figures created before the pie value capture hook is installed fall
+    back to recovering integer pie values from the wedge angle spans."""
+    fig, ax = plt.subplots()
+    ax.pie([3, 5, 2, 4, 6])
+    del ax._plotly_pie_values
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert np.allclose(plotly_fig.data[0].values, [6, 4, 2, 5, 3])
 
 
 def test_pie_with_labels_converts():

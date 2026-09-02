@@ -35,6 +35,9 @@ from packaging.version import Version
 
 import plotly.tools as tls
 
+# eager import installs the pie() value capture hook used by the converter
+from plotly.matplotlylib import mplexporter  # noqa: F401
+
 PLOTLY_JS = "https://cdn.plot.ly/plotly-2.35.2.min.js"
 
 # (name, code) pairs.  The code is executed with ``np`` and ``plt`` in

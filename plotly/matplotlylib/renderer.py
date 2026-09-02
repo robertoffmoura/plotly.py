@@ -321,7 +321,10 @@ class PlotlyRenderer(Renderer):
         matplotlib pie wedges run counterclockwise from 3 o'clock with
         angles measured in degrees; the plotly pie runs clockwise from
         12 o'clock, so the wedge order is reversed and the start angle is
-        rotated to keep the same geometry.
+        rotated to keep the same geometry. Slice values are the data passed
+        to pie(), captured by the exporter hook; for figures created before
+        the hook was installed, integer values are recovered from the wedge
+        angle spans.
         """
         wedges = self.current_pie_wedges
         if not wedges:
@@ -342,7 +345,18 @@ class PlotlyRenderer(Renderer):
         rotation = (-wedges[0].theta1 - 270) % 360
         if rotation > 180:
             rotation -= 360
-        values = [abs(w.theta2 - w.theta1) for w in wedges][::-1]
+        # take the original data values captured from the pie() call so that
+        # hover info shows what was passed to pie(), not wedge angles
+        values = getattr(self.current_mpl_ax, "_plotly_pie_values", None)
+        if values is None:
+            values = [abs(w.theta2 - w.theta1) for w in wedges]
+            # recover integer pie values from the wedge angle spans
+            rounded = [round(v) for v in values]
+            if all(abs(v - r) < 1e-6 for v, r in zip(values, rounded)):
+                divisor = np.gcd.reduce(rounded)
+                if divisor > 1 and all(r % divisor == 0 for r in rounded):
+                    values = [r // divisor for r in rounded]
+        values = values[::-1]
         colors = [_export_color(w.get_facecolor()) for w in wedges][::-1]
         edge = wedges[0]
         # fit the pie circle to the mpl wedge radius and center within the
@@ -365,6 +379,7 @@ class PlotlyRenderer(Renderer):
             direction="clockwise",
             showlegend=False,
             textinfo="none",
+            hovertemplate="%{value}<br>%{percent}",
             domain=domain,
             marker=go.pie.Marker(
                 colors=colors,
