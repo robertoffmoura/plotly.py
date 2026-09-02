@@ -545,26 +545,23 @@ def _chip(ok, label):
 
 def _html_header():
     return f"""<!DOCTYPE html>
-<html data-theme="auto">
+<html data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>matplotlib -> plotly conversion gallery</title>
 <script src="{PLOTLY_JS}"></script>
 <script>
-// The gallery follows the browser's preferred color scheme
-// (prefers-color-scheme) unless the user has toggled a theme,
-// in which case their choice is stored in localStorage.
+// The gallery is dark by default; the user can toggle the theme and the
+// choice is stored in localStorage.
 (function () {{
-  var theme = localStorage.getItem("gallery-theme") || "auto";
-  var mq = window.matchMedia("(prefers-color-scheme: dark)");
+  var theme = localStorage.getItem("gallery-theme") || "dark";
   function apply() {{
-    var dark = theme === "dark" || (theme === "auto" && mq.matches);
+    var dark = theme === "dark";
     document.documentElement.dataset.theme = dark ? "dark" : "light";
     document.getElementById("theme-toggle").textContent =
       dark ? "light mode" : "dark mode";
   }}
-  mq.addEventListener("change", function () {{ if (theme === "auto") apply(); }});
   window.toggleTheme = function () {{
     theme = theme === "dark" ? "light" : "dark";
     localStorage.setItem("gallery-theme", theme);
@@ -626,7 +623,7 @@ def _html_header():
 <body>
 <div class="header">
 <h1>matplotlib &#8594; plotly conversion gallery</h1>
-<button id="theme-toggle" type="button" onclick="toggleTheme()">dark mode</button>
+<button id="theme-toggle" type="button" onclick="toggleTheme()">light mode</button>
 </div>
 """
 
