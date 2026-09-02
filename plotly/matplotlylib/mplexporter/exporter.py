@@ -134,6 +134,8 @@ class Exporter(object):
         with self.renderer.draw_figure(fig=fig, props=utils.get_figure_properties(fig)):
             for ax in fig.axes:
                 self.crawl_ax(ax)
+            for image in fig.images:
+                self.draw_image(None, image)
 
     def crawl_ax(self, ax):
         """Crawl the axes and process all elements within"""
@@ -338,10 +340,18 @@ class Exporter(object):
 
     def draw_image(self, ax, image):
         """Process a matplotlib image object and call renderer.draw_image"""
-        self.renderer.draw_image(
-            imdata=utils.image_to_base64(image),
-            extent=image.get_extent(),
-            coordinates="data",
-            style={"alpha": image.get_alpha(), "zorder": image.get_zorder()},
-            mplobj=image,
-        )
+        if ax is None:
+            self.renderer.draw_image(
+                imdata=utils.image_to_base64(image),
+                coordinates="figure",
+                style={"alpha": image.get_alpha(), "zorder": image.get_zorder()},
+                mplobj=image,
+            )
+        else:
+            self.renderer.draw_image(
+                imdata=utils.image_to_base64(image),
+                extent=image.get_extent(),
+                coordinates="data",
+                style={"alpha": image.get_alpha(), "zorder": image.get_zorder()},
+                mplobj=image,
+            )

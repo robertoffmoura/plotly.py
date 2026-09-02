@@ -962,6 +962,51 @@ def test_pcolorfast_converts():
     assert abs(img.y - top) < 1e-9
 
 
+def test_figimage_converts():
+    """figimage places images directly on the figure without axes."""
+    fig = plt.figure()
+    Z = np.arange(10000).reshape((100, 100))
+    Z[:, 50:] = 1
+    plt.figimage(Z, xo=50, yo=50, origin="lower")
+    plt.figimage(Z, xo=100, yo=100, alpha=0.8, origin="lower")
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert len(plotly_fig.layout.images) == 2
+    img1 = plotly_fig.layout.images[0]
+    img2 = plotly_fig.layout.images[1]
+
+    fig_w, fig_h = fig.bbox.width, fig.bbox.height
+    assert img1.xref == "paper"
+    assert img1.yref == "paper"
+    assert abs(img1.sizex - 100 / fig_w) < 1e-6
+    assert abs(img1.sizey - 100 / fig_h) < 1e-6
+    assert abs(img1.x - 50 / fig_w) < 1e-6
+    assert abs(img1.y - (50 + 100) / fig_h) < 1e-6
+
+    assert abs(img2.opacity - 0.8) < 1e-6
+    assert abs(img2.x - 100 / fig_w) < 1e-6
+    assert abs(img2.y - (100 + 100) / fig_h) < 1e-6
+    assert plotly_fig.layout.xaxis.visible is False
+    assert plotly_fig.layout.yaxis.visible is False
+
+
+def test_figimage_with_axes_converts():
+    """figimage converts correctly alongside regular subplots."""
+    fig, ax = plt.subplots()
+    ax.plot([0, 1], [0, 1])
+    Z = np.ones((50, 50))
+    plt.figimage(Z, xo=20, yo=30, origin="lower")
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert len(plotly_fig.data) == 1
+    assert len(plotly_fig.layout.images) == 1
+    img = plotly_fig.layout.images[0]
+    assert img.xref == "paper"
+    assert img.yref == "paper"
+
+
 def test_axhline_converts():
     """axhline converts to a layout shape spanning the axes width."""
     fig, ax = plt.subplots()

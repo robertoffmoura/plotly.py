@@ -377,17 +377,20 @@ def image_to_base64(image):
     ax = image.axes
     binary_buffer = io.BytesIO()
 
-    # Render the axes region at the figure dpi so the exported png has the
-    # same pixel dimensions it is displayed at and no upscaling blur is
-    # introduced.  The axes limits are temporarily set to the image extent
-    # so the image fills the rendered box.  savefig takes bbox_inches in
-    # inches, so the display-space axes bbox is converted via the figure
-    # dpi scale transform.
-    lim = ax.axis()
-    ax.axis(image.get_extent())
-    bbox_inches = ax.bbox.transformed(ax.figure.dpi_scale_trans.inverted())
-    ax.figure.savefig(binary_buffer, format="png", bbox_inches=bbox_inches)
-    ax.axis(lim)
+    if ax is None:
+        image.write_png(binary_buffer)
+    else:
+        # Render the axes region at the figure dpi so the exported png has the
+        # same pixel dimensions it is displayed at and no upscaling blur is
+        # introduced.  The axes limits are temporarily set to the image extent
+        # so the image fills the rendered box.  savefig takes bbox_inches in
+        # inches, so the display-space axes bbox is converted via the figure
+        # dpi scale transform.
+        lim = ax.axis()
+        ax.axis(image.get_extent())
+        bbox_inches = ax.bbox.transformed(ax.figure.dpi_scale_trans.inverted())
+        ax.figure.savefig(binary_buffer, format="png", bbox_inches=bbox_inches)
+        ax.axis(lim)
 
     binary_buffer.seek(0)
     return base64.b64encode(binary_buffer.read()).decode("utf-8")

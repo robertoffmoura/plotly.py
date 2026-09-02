@@ -239,8 +239,11 @@ def get_axes_bounds(fig):
     box is then used to map mpl axes domains to plotly axes domains.
 
     """
+    axes = fig.get_axes()
+    if not axes:
+        return (0, 1), (0, 1)
     x_min, x_max, y_min, y_max = [], [], [], []
-    for axes_obj in fig.get_axes():
+    for axes_obj in axes:
         bounds = axes_obj.get_position().bounds
         x_min.append(bounds[0])
         x_max.append(bounds[0] + bounds[2])

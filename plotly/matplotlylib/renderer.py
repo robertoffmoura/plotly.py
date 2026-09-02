@@ -229,6 +229,9 @@ class PlotlyRenderer(Renderer):
             pad=0,
         )
         self.plotly_fig["layout"]["margin"] = margin
+        if not fig.get_axes():
+            self.plotly_fig["layout"]["xaxis"] = dict(visible=False)
+            self.plotly_fig["layout"]["yaxis"] = dict(visible=False)
 
     def close_figure(self, fig):
         """Closes figure by cleaning up data and layout dictionaries.
@@ -844,18 +847,49 @@ class PlotlyRenderer(Renderer):
         """
         self.msg += "    Attempting to draw image\n"
         style = props["style"]
-        left, right, bottom, top = props["extent"]
+        coords = props.get("coordinates", "data")
+        if coords == "figure":
+            mplobj = props["mplobj"]
+            fig_w = float(self.plotly_fig["layout"]["width"])
+            fig_h = float(self.plotly_fig["layout"]["height"])
+            margin = getattr(self.plotly_fig["layout"], "margin", None)
+            pad_l = float(margin.l if margin and margin.l is not None else 0)
+            pad_r = float(margin.r if margin and margin.r is not None else 0)
+            pad_t = float(margin.t if margin and margin.t is not None else 0)
+            pad_b = float(margin.b if margin and margin.b is not None else 0)
+            plot_w = max(fig_w - pad_l - pad_r, 1.0)
+            plot_h = max(fig_h - pad_t - pad_b, 1.0)
+
+            numrows, numcols = mplobj.get_size()
+            ox = float(getattr(mplobj, "ox", 0))
+            oy = float(getattr(mplobj, "oy", 0))
+
+            x = (ox - pad_l) / plot_w
+            y = (oy + numrows - pad_b) / plot_h
+            sizex = numcols / plot_w
+            sizey = numrows / plot_h
+            xref = "paper"
+            yref = "paper"
+        else:
+            left, right, bottom, top = props["extent"]
+            x = min(left, right)
+            y = top
+            sizex = abs(right - left)
+            sizey = abs(top - bottom)
+            xref = "x{0}".format(self.axis_ct)
+            yref = "y{0}".format(self.axis_ct)
+
         img = go.layout.Image(
             source="data:image/png;base64,{0}".format(props["imdata"]),
-            x=min(left, right),
-            y=top,
-            sizex=abs(right - left),
-            sizey=abs(top - bottom),
+            x=x,
+            y=y,
+            sizex=sizex,
+            sizey=sizey,
             sizing="stretch",
             xanchor="left",
             yanchor="top",
-            xref="x{0}".format(self.axis_ct),
-            yref="y{0}".format(self.axis_ct),
+            xref=xref,
+            yref=yref,
             opacity=style["alpha"] if style["alpha"] is not None else 1,
             layer="below",
         )
