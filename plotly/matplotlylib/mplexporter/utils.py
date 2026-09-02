@@ -15,7 +15,7 @@ import matplotlib
 from matplotlib.colors import colorConverter
 from matplotlib.path import Path
 from matplotlib.markers import MarkerStyle
-from matplotlib.transforms import Affine2D
+from matplotlib.transforms import Affine2D, Bbox
 from matplotlib import ticker
 
 
@@ -372,13 +372,24 @@ def image_to_base64(image):
         The UTF8-encoded base64 string representation of the png image.
     """
     ax = image.axes
+    fig = ax.figure
     binary_buffer = io.BytesIO()
 
-    # image is saved in axes coordinates: we need to temporarily
-    # set the correct limits to get the correct image
+    # Render the image at the pixel size it occupies in the converted
+    # figure (the figure box minus the integer-rounded axes margins), so the
+    # browser displays the png at a 1:1 scale with no smoothing blur.  The
+    # axes limits are temporarily set to the image extent so the image fills
+    # the rendered box.  savefig takes bbox_inches in inches, so the
+    # display-space box is converted via the figure dpi scale transform.
     lim = ax.axis()
     ax.axis(image.get_extent())
-    image.write_png(binary_buffer)
+    x0, y0, w, h = ax.bbox.bounds
+    x1, y1 = x0 + w, y0 + h
+    left, bottom = int(x0), int(y0)
+    right, top = int(fig.bbox.width - x1), int(fig.bbox.height - y1)
+    box = Bbox([[left, bottom], [fig.bbox.width - right, fig.bbox.height - top]])
+    bbox_inches = box.transformed(fig.dpi_scale_trans.inverted())
+    fig.savefig(binary_buffer, format="png", bbox_inches=bbox_inches)
     ax.axis(lim)
 
     binary_buffer.seek(0)

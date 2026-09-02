@@ -899,3 +899,25 @@ def test_imshow_converts():
     assert img.sizey == abs(y1 - y0)
     assert img.xref == "x"
     assert img.yref == "y"
+
+
+def test_imshow_png_matches_plot_area_size():
+    """The exported image png is rendered at the plot area pixel size so it
+    displays at a 1:1 scale without upscaling blur."""
+    fig, ax = plt.subplots()
+    ax.imshow(np.random.rand(64, 64))
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    import base64
+    import io
+
+    from matplotlib import image as mpimg
+
+    img = plotly_fig.layout.images[0]
+    png = mpimg.imread(io.BytesIO(base64.b64decode(img.source[22:])), format="png")
+    layout = plotly_fig.layout
+    width = layout.width - layout.margin.l - layout.margin.r
+    height = layout.height - layout.margin.b - layout.margin.t
+    assert png.shape[1] == width
+    assert png.shape[0] == height
