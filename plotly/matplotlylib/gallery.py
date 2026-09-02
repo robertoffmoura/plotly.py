@@ -630,7 +630,7 @@ def _html_header():
 
 def _html_entry(entry, index):
     parts = [f'<section class="entry" id="fn-{entry["name"]}">\n']
-    parts.append(f"<h2><code>{_html_escape(entry['name'])}</code>")
+    parts.append(f"<h2><code>{_html_escape(entry['name'])}</code> ")
     parts.append(_chip(entry["nativeOK"], "native"))
     parts.append(_chip(entry["plotlyOK"], "plotly"))
     parts.append("</h2>\n")
