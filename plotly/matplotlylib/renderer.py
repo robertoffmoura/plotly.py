@@ -429,6 +429,7 @@ class PlotlyRenderer(Renderer):
             rotation=rotation,
             direction="clockwise",
             showlegend=False,
+            name="",
             textinfo="none",
             hovertemplate="%{value}<br>%{percent}",
             domain=domain,
