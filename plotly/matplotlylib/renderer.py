@@ -1222,6 +1222,11 @@ class PlotlyRenderer(Renderer):
                 k=[t[2] for t in triangles],
                 vertexcolor=vertexcolor,
                 flatshading=True,
+                # matplotlib shades the faces itself, so disable plotly's
+                # lighting to keep the colors as-is
+                lighting=go.mesh3d.Lighting(
+                    ambient=1.0, diffuse=0.0, specular=0.0
+                ),
                 scene=self.current_3d_subplot,
             )
         )

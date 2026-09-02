@@ -1368,3 +1368,18 @@ def test_bar3d_converts():
         2.5,
     ]
     assert min(trace.z) == 0
+
+
+def test_bar3d_disables_mesh_lighting():
+    """bar3d meshes disable plotly lighting since matplotlib shades the
+    faces itself."""
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")
+    ax.bar3d([0], [0], [0], 1, 1, 1)
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    trace = plotly_fig.data[0]
+    assert trace.lighting.ambient == 1.0
+    assert trace.lighting.diffuse == 0.0
+    assert trace.lighting.specular == 0.0
