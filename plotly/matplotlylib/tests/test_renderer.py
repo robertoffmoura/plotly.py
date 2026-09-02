@@ -881,28 +881,43 @@ def test_hexbin_converts():
 
 
 def test_imshow_converts():
-    """imshow images convert to heatmap traces colored by the mpl colormap."""
+    """imshow images convert to layout images spanning the image extent."""
     data = np.random.rand(64, 64)
     fig, ax = plt.subplots()
     im = ax.imshow(data)
 
     plotly_fig = tls.mpl_to_plotly(fig)
 
-    assert len(plotly_fig.data) == 1
-    trace = plotly_fig.data[0]
-    assert trace.type == "heatmap"
-    assert np.allclose(trace.z, im.norm(data))
-    assert trace.zmin == 0
-    assert trace.zmax == 1
-    assert trace.showscale is False
-    assert len(plotly_fig.layout.images) == 0
-    # the heatmap cells span the image extent
+    assert len(plotly_fig.data) == 0
+    assert len(plotly_fig.layout.images) == 1
+    img = plotly_fig.layout.images[0]
+    assert img.source.startswith("data:image/png;base64,")
     x0, y0, x1, y1 = im.get_extent()
-    assert trace.x[0] == x0 + (x1 - x0) / (2 * data.shape[1])
-    assert trace.y[0] == y0 + (y1 - y0) / (2 * data.shape[0])
-    # the colorscale matches the mpl colormap
-    from plotly.matplotlylib.renderer import _export_color
+    assert img.x == min(x0, x1)
+    assert img.y == min(y0, y1)
+    assert img.sizex == abs(x1 - x0)
+    assert img.sizey == abs(y1 - y0)
+    assert img.sizing == "stretch"
+    assert img.xref == "x"
+    assert img.yref == "y"
 
-    cmap = im.get_cmap()
-    assert trace.colorscale[0][1] == _export_color(cmap(0.0))
-    assert trace.colorscale[-1][1] == _export_color(cmap(1.0))
+
+def test_imshow_png_matches_axes_box_size():
+    """The exported image png is rendered at the axes box pixel size so it
+    displays at a 1:1 scale without upscaling blur."""
+    fig, ax = plt.subplots()
+    ax.imshow(np.random.rand(64, 64))
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    import base64
+    import io
+
+    from matplotlib import image as mpimg
+
+    png = mpimg.imread(
+        io.BytesIO(base64.b64decode(plotly_fig.layout.images[0].source[22:])),
+        format="png",
+    )
+    assert abs(png.shape[1] - ax.bbox.width) <= 1
+    assert abs(png.shape[0] - ax.bbox.height) <= 1

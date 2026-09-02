@@ -15,7 +15,7 @@ import matplotlib.quiver as mquiver
 import numpy as np
 import plotly.graph_objs as go
 from plotly.matplotlylib.mplexporter import Renderer
-from plotly.matplotlylib.mplexporter.utils import export_color, image_to_base64
+from plotly.matplotlylib.mplexporter.utils import export_color
 from plotly.matplotlylib import mpltools
 
 
@@ -714,59 +714,28 @@ class PlotlyRenderer(Renderer):
             )
 
     def draw_image(self, **props):
-        """Draw an mpl image as a plotly heatmap trace.
+        """Draw an mpl image as a plotly layout image.
 
-        The image data is normalized with the mpl norm and colored by a
-        colorscale sampled from the mpl colormap, so the rendered pixels
-        match the mpl image. RGB(A) images and images on polar axes are
-        exported as base64 layout images instead.
+        The exporter renders the mpl image to a base64-encoded PNG at the
+        pixel size of the axes box, which is placed at the image extent in
+        data coordinates and stretched to fill it exactly.
         """
         self.msg += "    Attempting to draw image\n"
         style = props["style"]
-        mplimg = props["mplobj"]
-        data = np.ma.asarray(props["imdata"])
-        if self.current_is_polar or data.ndim != 2:
-            self.msg += "    Drawing the image as a base64 layout image\n"
-            x0, y0, x1, y1 = props["extent"]
-            img = go.layout.Image(
-                source="data:image/png;base64,{0}".format(image_to_base64(mplimg)),
-                x=min(x0, x1),
-                y=min(y0, y1),
-                sizex=abs(x1 - x0),
-                sizey=abs(y1 - y0),
-                xref="x{0}".format(self.axis_ct),
-                yref="y{0}".format(self.axis_ct),
-                opacity=style["alpha"] if style["alpha"] is not None else 1,
-                layer="below",
-            )
-            self.plotly_fig["layout"]["images"] += (img,)
-            self.msg += "    Heck yeah, I drew that image\n"
-            return
-        z = np.ma.filled(np.asarray(mplimg.norm(data), dtype=float), np.nan)
-        nrows, ncols = z.shape
         x0, y0, x1, y1 = props["extent"]
-        x = np.linspace(x0, x1, ncols, endpoint=False) + (x1 - x0) / (2 * ncols)
-        y = np.linspace(y0, y1, nrows, endpoint=False) + (y1 - y0) / (2 * nrows)
-        cmap = mplimg.get_cmap()
-        steps = min(cmap.N, 256)
-        colorscale = [
-            [i / (steps - 1), _export_color(cmap(i / (steps - 1)))]
-            for i in range(steps)
-        ]
-        self.plotly_fig.add_trace(
-            go.Heatmap(
-                z=z,
-                x=x,
-                y=y,
-                colorscale=colorscale,
-                zmin=0,
-                zmax=1,
-                showscale=False,
-                opacity=style["alpha"] if style["alpha"] is not None else 1,
-                xaxis="x{0}".format(self.axis_ct),
-                yaxis="y{0}".format(self.axis_ct),
-            )
+        img = go.layout.Image(
+            source="data:image/png;base64,{0}".format(props["imdata"]),
+            x=min(x0, x1),
+            y=min(y0, y1),
+            sizex=abs(x1 - x0),
+            sizey=abs(y1 - y0),
+            sizing="stretch",
+            xref="x{0}".format(self.axis_ct),
+            yref="y{0}".format(self.axis_ct),
+            opacity=style["alpha"] if style["alpha"] is not None else 1,
+            layer="below",
         )
+        self.plotly_fig["layout"]["images"] += (img,)
         self.msg += "    Heck yeah, I drew that image\n"
 
     def draw_path_collection(self, **props):
