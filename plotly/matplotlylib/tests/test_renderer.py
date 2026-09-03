@@ -345,6 +345,8 @@ def test_grouped_bar_bars_touch():
 
     assert trace0.width is not None
     assert trace1.width is not None
+    # grouped bars have explicit widths, so no layout bargap is set
+    assert plotly_fig.layout.bargap is None
 
     for i in range(3):
         w0 = (

@@ -330,6 +330,7 @@ class PlotlyRenderer(Renderer):
             orientation = "v"
         else:
             orientation = "h"
+        bar_gap = None
         if orientation == "v":
             self.msg += "    Attempting to draw a vertical bar chart\n"
             old_heights = [bar_props["y1"] for bar_props in trace]
@@ -343,9 +344,11 @@ class PlotlyRenderer(Renderer):
                     self.plotly_fig["layout"]["hovermode"] = "x"
             x = [bar["x0"] + (bar["x1"] - bar["x0"]) / 2 for bar in trace]
             y = [bar["y1"] for bar in trace]
-            bar_gap = mpltools.get_bar_gap(
-                [bar["x0"] for bar in trace], [bar["x1"] for bar in trace]
-            )
+            # grouped bars carry explicit widths, so no bargap is needed
+            if not is_grouped:
+                bar_gap = mpltools.get_bar_gap(
+                    [bar["x0"] for bar in trace], [bar["x1"] for bar in trace]
+                )
             if self.x_is_mpl_date:
                 x = self._convert_x_dates([bar["x0"] for bar in trace])
         else:
@@ -361,9 +364,10 @@ class PlotlyRenderer(Renderer):
                     self.plotly_fig["layout"]["hovermode"] = "y"
             x = [bar["x1"] for bar in trace]
             y = [bar["y0"] + (bar["y1"] - bar["y0"]) / 2 for bar in trace]
-            bar_gap = mpltools.get_bar_gap(
-                [bar["y0"] for bar in trace], [bar["y1"] for bar in trace]
-            )
+            if not is_grouped:
+                bar_gap = mpltools.get_bar_gap(
+                    [bar["y0"] for bar in trace], [bar["y1"] for bar in trace]
+                )
         bar_width = widths if orientation == "v" else heights
         bar_kwargs = dict(
             orientation=orientation,
