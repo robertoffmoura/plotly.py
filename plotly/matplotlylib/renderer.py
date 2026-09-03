@@ -310,13 +310,15 @@ class PlotlyRenderer(Renderer):
             else:
                 spans.append([(b["y0"], b["y1"]) for b in trace_bars])
         for i, (container, trace) in enumerate(mpl_traces):
-            is_grouped = False
-            for j, other in enumerate(spans):
-                if i != j and any(
+            overlapping = [
+                j
+                for j, other in enumerate(spans)
+                if i == j
+                or any(
                     a0 <= b1 and b0 <= a1 for (a0, a1) in spans[i] for (b0, b1) in other
-                ):
-                    is_grouped = True
-                    break
+                )
+            ]
+            is_grouped = len(overlapping) > 1
             # the hover category of the k-th bar is the mean of its center
             # across the overlapping containers (the shared group position)
             customdata = None
@@ -325,7 +327,8 @@ class PlotlyRenderer(Renderer):
                 customdata = []
                 for k in range(len(trace)):
                     centers = []
-                    for _, other_bars in prepared:
+                    for j in overlapping:
+                        other_bars = prepared[j][1]
                         if k < len(other_bars):
                             bar = other_bars[k]
                             if orientation == "v":
