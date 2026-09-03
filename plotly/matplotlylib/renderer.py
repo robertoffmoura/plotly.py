@@ -1893,6 +1893,13 @@ class PlotlyRenderer(Renderer):
                 return colors
             return colors[i % n] if n else default
 
+        mplobj = props.get("mplobj")
+        is_mesh = type(mplobj).__name__ in ("QuadMesh", "PolyQuadMesh")
+        z_array = (
+            mplobj.get_array() if is_mesh and hasattr(mplobj, "get_array") else None
+        )
+        flat_z = np.asarray(z_array).ravel() if z_array is not None else None
+
         for i, (verts, codes) in enumerate(props["paths"]):
             facecolor = per_path(facecolors, i, "rgba(0,0,0,0)")
             edgecolor = per_path(edgecolors, i, "rgba(0,0,0,0)")
@@ -1933,35 +1940,57 @@ class PlotlyRenderer(Renderer):
                 xs = [v[0] for v in verts]
                 ys = [v[1] for v in verts]
 
+            trace_text = None
+            if is_mesh and flat_z is not None and i < len(flat_z):
+                valid_x = [v for v in xs if v is not None]
+                valid_y = [v for v in ys if v is not None]
+                if len(valid_x) > 1:
+                    xc = float(np.mean(valid_x[:-1]))
+                    yc = float(np.mean(valid_y[:-1]))
+                elif valid_x:
+                    xc = float(valid_x[0])
+                    yc = float(valid_y[0])
+                else:
+                    xc, yc = 0.0, 0.0
+                zc_raw = flat_z[i]
+                if np.ma.is_masked(zc_raw) or np.isnan(zc_raw):
+                    zc_str = "NaN"
+                else:
+                    zc_str = f"{float(zc_raw):g}"
+                trace_text = f"x: {xc:g}<br>y: {yc:g}<br>z: {zc_str}"
+
             if self.current_is_polar:
-                self.plotly_fig.add_trace(
-                    go.Scatterpolar(
-                        theta=[np.degrees(x) if x is not None else None for x in xs],
-                        r=ys,
-                        mode="lines",
-                        line=go.scatterpolar.Line(
-                            color=_export_color(edgecolor), width=linewidth
-                        ),
-                        fill="toself",
-                        fillcolor=_export_color(facecolor),
-                        subplot=self.current_polar_subplot,
-                    )
-                )
-                continue
-            self.plotly_fig.add_trace(
-                go.Scatter(
-                    x=self._convert_x_dates(xs),
-                    y=ys,
+                polar_kwargs = dict(
+                    theta=[np.degrees(x) if x is not None else None for x in xs],
+                    r=ys,
                     mode="lines",
-                    line=go.scatter.Line(
+                    line=go.scatterpolar.Line(
                         color=_export_color(edgecolor), width=linewidth
                     ),
                     fill="toself",
                     fillcolor=_export_color(facecolor),
-                    xaxis="x{0}".format(self.axis_ct),
-                    yaxis="y{0}".format(self.axis_ct),
+                    subplot=self.current_polar_subplot,
                 )
+                if trace_text is not None:
+                    polar_kwargs["text"] = trace_text
+                    polar_kwargs["hoverinfo"] = "text"
+                self.plotly_fig.add_trace(go.Scatterpolar(**polar_kwargs))
+                continue
+
+            scatter_kwargs = dict(
+                x=self._convert_x_dates(xs),
+                y=ys,
+                mode="lines",
+                line=go.scatter.Line(color=_export_color(edgecolor), width=linewidth),
+                fill="toself",
+                fillcolor=_export_color(facecolor),
+                xaxis="x{0}".format(self.axis_ct),
+                yaxis="y{0}".format(self.axis_ct),
             )
+            if trace_text is not None:
+                scatter_kwargs["text"] = trace_text
+                scatter_kwargs["hoverinfo"] = "text"
+            self.plotly_fig.add_trace(go.Scatter(**scatter_kwargs))
 
     def draw_path(self, **props):
         """Draw path, currently only attempts to draw bar charts.

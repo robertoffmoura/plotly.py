@@ -1662,3 +1662,56 @@ def test_grouped_bar_hover_shows_index():
     for trace in plotly_fig.data:
         assert list(trace.customdata) == [0, 1, 2]
         assert "%{customdata}" in trace.hovertemplate
+
+
+def test_pcolormesh_hover_shows_xyz():
+    """pcolormesh hover data displays x, y, z instead of trace number."""
+    fig, ax = plt.subplots()
+    x = np.linspace(-3, 3, 5)
+    y = np.linspace(-3, 3, 5)
+    X, Y = np.meshgrid(x, y)
+    Z = np.sin(X) * np.cos(Y)
+    ax.pcolormesh(X, Y, Z)
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert len(plotly_fig.data) == 25
+    for trace in plotly_fig.data:
+        assert trace.hoverinfo == "text"
+        assert trace.text is not None
+        assert trace.text.startswith("x: ")
+        assert "<br>y: " in trace.text
+        assert "<br>z: " in trace.text
+
+
+def test_pcolor_hover_shows_xyz():
+    """pcolor hover data displays x, y, z instead of trace number."""
+    fig, ax = plt.subplots()
+    ax.pcolor([[1, 2], [3, 4]])
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert len(plotly_fig.data) == 4
+    for trace in plotly_fig.data:
+        assert trace.hoverinfo == "text"
+        assert trace.text is not None
+        assert trace.text.startswith("x: ")
+        assert "<br>y: " in trace.text
+        assert "<br>z: " in trace.text
+
+
+def test_hist2d_hover_shows_xyz():
+    """hist2d hover data displays x, y, z instead of trace number."""
+    np.random.seed(0)
+    fig, ax = plt.subplots()
+    ax.hist2d(np.random.randn(100), np.random.randn(100), bins=5)
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert len(plotly_fig.data) == 25
+    for trace in plotly_fig.data:
+        assert trace.hoverinfo == "text"
+        assert trace.text is not None
+        assert trace.text.startswith("x: ")
+        assert "<br>y: " in trace.text
+        assert "<br>z: " in trace.text
