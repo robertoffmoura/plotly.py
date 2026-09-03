@@ -1256,27 +1256,57 @@ class PlotlyRenderer(Renderer):
         per-bin face color, so it converts to markers at the offsets sized
         like the hexagon and colored like the mpl bins."""
         mplobj = props["mplobj"]
-        colors = mpltools.convert_rgba_array(props["styles"]["facecolor"])
         x0, y0, x1, y1 = mplobj.get_paths()[0].get_extents().bounds
         p0 = self.current_mpl_ax.transData.transform((x0, y0))
         p1 = self.current_mpl_ax.transData.transform((x1, y1))
         size = max(p1[0] - p0[0], p1[1] - p0[1])
         offsets = mplobj.get_offsets()
-        self.plotly_fig.add_trace(
-            go.Scatter(
-                x=[o[0] for o in offsets],
-                y=[o[1] for o in offsets],
-                mode="markers",
-                marker=go.scatter.Marker(
-                    symbol="hexagon2",
-                    size=size,
-                    color=colors,
-                    line=go.scatter.marker.Line(width=0),
-                ),
-                xaxis="x{0}".format(self.axis_ct),
-                yaxis="y{0}".format(self.axis_ct),
-            )
+
+        marker_dict = dict(
+            symbol="hexagon2",
+            size=size,
+            line=dict(width=0),
         )
+
+        arr = mplobj.get_array() if hasattr(mplobj, "get_array") else None
+        if (
+            arr is not None
+            and hasattr(mplobj, "get_cmap")
+            and hasattr(mplobj, "get_clim")
+        ):
+            cmap = mplobj.get_cmap()
+            colorscale = [
+                [
+                    float(s),
+                    f"rgb({int(rgba[0] * 255)},{int(rgba[1] * 255)},{int(rgba[2] * 255)})",
+                ]
+                for s in np.linspace(0, 1, 25)
+                for rgba in [cmap(s)]
+            ]
+            clim = mplobj.get_clim()
+            marker_dict["color"] = arr
+            marker_dict["colorscale"] = colorscale
+            if clim[0] is not None and not np.isnan(clim[0]):
+                marker_dict["cmin"] = float(clim[0])
+            if clim[1] is not None and not np.isnan(clim[1]):
+                marker_dict["cmax"] = float(clim[1])
+            marker_dict["showscale"] = (
+                hasattr(mplobj, "colorbar") and mplobj.colorbar is not None
+            )
+        else:
+            colors = mpltools.convert_rgba_array(props["styles"]["facecolor"])
+            marker_dict["color"] = colors
+
+        trace = dict(
+            type="scatter",
+            x=[o[0] for o in offsets],
+            y=[o[1] for o in offsets],
+            mode="markers",
+            marker=marker_dict,
+            xaxis="x{0}".format(self.axis_ct),
+            yaxis="y{0}".format(self.axis_ct),
+        )
+        self.plotly_fig.add_traces([trace])
 
     def _draw_contour3d(self, props):
         """Draw a 3D contour set as scatter3d line traces, one per level.
