@@ -1471,7 +1471,16 @@ class PlotlyRenderer(Renderer):
         j = np.arange(1, 3 * T, 3)
         k = np.arange(2, 3 * T, 3)
 
-        fc = mplobj.get_facecolors()
+        # _faces is in original 3D order; get_facecolors() returns colors
+        # depth-sorted by view direction which would scramble them.
+        # to_rgba(get_array()) or _facecolor3d maintains original face order.
+        if mplobj.get_array() is not None:
+            fc = mplobj.to_rgba(mplobj.get_array())
+        elif hasattr(mplobj, "_facecolor3d") and len(mplobj._facecolor3d) == T:
+            fc = mplobj._facecolor3d
+        else:
+            fc = mplobj.get_facecolors()
+
         if len(fc) == 0:
             color = "blue"
             facecolor_strs = None

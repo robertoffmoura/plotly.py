@@ -1512,3 +1512,31 @@ def test_trisurf3d_cmap_converts():
     assert traces[0].type == "mesh3d"
     assert traces[0].facecolor is not None
     assert len(traces[0].facecolor) == len(traces[0].i)
+
+
+def test_trisurf3d_face_colors_follow_faces():
+    """trisurf3d face colors stay aligned with their faces and are not
+    scrambled by matplotlib's depth sorting."""
+    x = np.array([0, 1, 0, 1])
+    y = np.array([0, 0, 1, 1])
+    z = np.array([0, 0, 1, 1])
+    triangles = np.array([[0, 1, 2], [1, 3, 2]])
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")
+    surf = ax.plot_trisurf(x, y, z, triangles=triangles, cmap="viridis")
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    trace = plotly_fig.data[0]
+    fc = trace.facecolor
+    assert len(fc) == 2
+
+    def parse_rgb(c):
+        if c.startswith("#"):
+            return tuple(int(c[i : i + 2], 16) for i in (1, 3, 5))
+        return tuple(int(x) for x in c[5:-1].split(",")[:3])
+
+    c0 = parse_rgb(fc[0])
+    c1 = parse_rgb(fc[1])
+    # Face 1 is higher z than face 0; in viridis, higher value has higher green
+    assert c1[1] > c0[1]
