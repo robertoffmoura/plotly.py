@@ -1122,8 +1122,9 @@ class PlotlyRenderer(Renderer):
         ):
             self.msg += "    Drawing a hexbin as hexagon markers\n"
             self._draw_hexbin(props)
-        elif (
-            self.current_is_3d and type(props["mplobj"]).__name__ == "QuadContourSet3D"
+        elif self.current_is_3d and type(props["mplobj"]).__name__ in (
+            "QuadContourSet3D",
+            "TriContourSet3D",
         ):
             self.msg += "    Drawing a 3d contour set\n"
             self._draw_contour3d(props)

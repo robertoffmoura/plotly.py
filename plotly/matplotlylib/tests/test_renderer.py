@@ -1560,3 +1560,20 @@ def test_text3d_converts():
     assert ann.font.color == "#FF0000"
     assert ann.font.size == 14
     assert ann.showarrow is False
+
+
+def test_tricontour3d_converts():
+    """3D triangular contour plots convert to scatter3d line traces."""
+    np.random.seed(42)
+    x = np.random.rand(30)
+    y = np.random.rand(30)
+    z = x + y
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")
+    ax.tricontour(x, y, z, 5)
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    traces = plotly_fig.data
+    assert len(traces) > 0
+    assert all(t.type == "scatter3d" and t.mode == "lines" for t in traces)
