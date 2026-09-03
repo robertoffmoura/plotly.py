@@ -428,6 +428,33 @@ def test_grouped_bar_unlabeled_hover_has_no_extra_box():
         assert "<extra>" not in trace.hovertemplate
 
 
+def test_grouped_bar_unlabeled_hover_has_no_extra_box():
+    """Unnamed grouped bars keep the ordinal hover without an empty name
+    box."""
+    fig, ax = plt.subplots()
+    plt.grouped_bar([[1, 2, 3], [2, 3, 4]])
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert len(plotly_fig.data) == 2
+    for trace in plotly_fig.data:
+        assert trace.name is None
+        assert list(trace.customdata) == [0, 1, 2]
+        assert "<extra>" not in trace.hovertemplate
+
+
+def test_grouped_bar_hover_shows_positions():
+    """Grouped bars with custom positions hover by the shared position, not
+    the ordinal index."""
+    fig, ax = plt.subplots()
+    plt.grouped_bar({"g1": [1, 2, 3], "g2": [2, 3, 4]}, positions=[10, 20, 30])
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert len(plotly_fig.data) == 2
+    for trace in plotly_fig.data:
+        assert len(trace.customdata) == 3
+        assert all(abs(c - p) < 1e-6 for c, p in zip(trace.customdata, [10, 20, 30]))
+
+
 def test_custom_date_xtickvals_given_as_numbers_are_converted():
     """Custom date ticks given as matplotlib date numbers must be converted
     to date strings."""

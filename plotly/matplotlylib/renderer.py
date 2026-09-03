@@ -317,11 +317,29 @@ class PlotlyRenderer(Renderer):
                 ):
                     is_grouped = True
                     break
+            # the hover category of the k-th bar is the mean of its center
+            # across the overlapping containers (the shared group position)
+            customdata = None
+            if is_grouped:
+                orientation = _bar_orientation(prepared[i][1])
+                customdata = []
+                for k in range(len(trace)):
+                    centers = []
+                    for _, other_bars in prepared:
+                        if k < len(other_bars):
+                            bar = other_bars[k]
+                            if orientation == "v":
+                                centers.append((bar["x0"] + bar["x1"]) / 2)
+                            else:
+                                centers.append((bar["y0"] + bar["y1"]) / 2)
+                    customdata.append(round(sum(centers) / len(centers), 9))
             label = container.get_label()
             name = label if label and not label.startswith("_") else None
-            self.draw_bar(trace, name=name, is_grouped=is_grouped)
+            self.draw_bar(
+                trace, name=name, is_grouped=is_grouped, customdata=customdata
+            )
 
-    def draw_bar(self, coll, name=None, is_grouped=False):
+    def draw_bar(self, coll, name=None, is_grouped=False, customdata=None):
         """Draw a collection of similar patches as a bar chart.
 
         After bars are sorted, an appropriate data dictionary must be created
@@ -383,8 +401,8 @@ class PlotlyRenderer(Renderer):
         if (
             is_grouped
             and getattr(self.plotly_fig["layout"], "barmode", None) != "stack"
+            and customdata is not None
         ):
-            customdata = list(range(len(trace)))
             bar_kwargs["customdata"] = customdata
             if orientation == "v":
                 hover = "(%{customdata}, %{y})"
