@@ -321,8 +321,9 @@ def test_pcolor_rectangles_render():
     fig, ax = plt.subplots()
     ax.pcolor(X, Y, np.sin(X) * np.cos(Y))
     plotly_fig = tls.mpl_to_plotly(fig)
-    assert len(plotly_fig.data) == 100
-    assert all(len(t.x) >= 4 for t in plotly_fig.data)
+    assert len(plotly_fig.data) == 1
+    assert plotly_fig.data[0].type == "heatmap"
+    assert np.shape(plotly_fig.data[0].z) == (10, 10)
 
 
 def test_boxplot_converts_with_none_marker_facecolor():
@@ -1633,7 +1634,6 @@ def test_plot3d_labels_and_dark_background():
         assert plotly_fig.layout.paper_bgcolor == "#000000"
 
 
-
 def test_axhline_converts():
     """axhline converts to a layout shape spanning the axes width."""
     fig, ax = plt.subplots()
@@ -2166,7 +2166,7 @@ def test_grouped_bar_hover_shows_index():
 
 
 def test_pcolormesh_hover_shows_xyz():
-    """pcolormesh hover data displays x, y, z instead of trace number."""
+    """pcolormesh converts to a heatmap with x, y, z in hover data."""
     fig, ax = plt.subplots()
     x = np.linspace(-3, 3, 5)
     y = np.linspace(-3, 3, 5)
@@ -2176,43 +2176,54 @@ def test_pcolormesh_hover_shows_xyz():
 
     plotly_fig = tls.mpl_to_plotly(fig)
 
-    assert len(plotly_fig.data) == 25
-    for trace in plotly_fig.data:
-        assert trace.hoverinfo == "text"
-        assert trace.text is not None
-        assert trace.text.startswith("x: ")
-        assert "<br>y: " in trace.text
-        assert "<br>z: " in trace.text
+    assert len(plotly_fig.data) == 1
+    trace = plotly_fig.data[0]
+    assert trace.type == "heatmap"
+    assert trace.hovertemplate == "x: %{x}<br>y: %{y}<br>z: %{z}<extra></extra>"
+    assert np.shape(trace.z) == (5, 5)
 
 
 def test_pcolor_hover_shows_xyz():
-    """pcolor hover data displays x, y, z instead of trace number."""
+    """pcolor converts to a heatmap with x, y, z in hover data."""
     fig, ax = plt.subplots()
     ax.pcolor([[1, 2], [3, 4]])
 
     plotly_fig = tls.mpl_to_plotly(fig)
 
-    assert len(plotly_fig.data) == 4
-    for trace in plotly_fig.data:
-        assert trace.hoverinfo == "text"
-        assert trace.text is not None
-        assert trace.text.startswith("x: ")
-        assert "<br>y: " in trace.text
-        assert "<br>z: " in trace.text
+    assert len(plotly_fig.data) == 1
+    trace = plotly_fig.data[0]
+    assert trace.type == "heatmap"
+    assert trace.hovertemplate == "x: %{x}<br>y: %{y}<br>z: %{z}<extra></extra>"
+    assert np.shape(trace.z) == (2, 2)
 
 
 def test_hist2d_hover_shows_xyz():
-    """hist2d hover data displays x, y, z instead of trace number."""
+    """hist2d converts to a heatmap with x, y, z in hover data."""
     np.random.seed(0)
     fig, ax = plt.subplots()
     ax.hist2d(np.random.randn(100), np.random.randn(100), bins=5)
 
     plotly_fig = tls.mpl_to_plotly(fig)
 
-    assert len(plotly_fig.data) == 25
-    for trace in plotly_fig.data:
-        assert trace.hoverinfo == "text"
-        assert trace.text is not None
-        assert trace.text.startswith("x: ")
-        assert "<br>y: " in trace.text
-        assert "<br>z: " in trace.text
+    assert len(plotly_fig.data) == 1
+    trace = plotly_fig.data[0]
+    assert trace.type == "heatmap"
+    assert trace.hovertemplate == "x: %{x}<br>y: %{y}<br>z: %{z}<extra></extra>"
+    assert np.shape(trace.z) == (5, 5)
+
+
+def test_curvilinear_pcolormesh_falls_back_to_polygon_traces():
+    """Non-rectilinear quad meshes fall back to filled polygon scatter traces."""
+    r = np.linspace(1, 2, 4)
+    theta = np.linspace(0, np.pi / 2, 4)
+    R, THETA = np.meshgrid(r, theta)
+    X = R * np.cos(THETA)
+    Y = R * np.sin(THETA)
+    Z = R + THETA
+
+    fig, ax = plt.subplots()
+    ax.pcolormesh(X, Y, Z)
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+    assert len(plotly_fig.data) == 16
+    assert all(t.type == "scatter" for t in plotly_fig.data)

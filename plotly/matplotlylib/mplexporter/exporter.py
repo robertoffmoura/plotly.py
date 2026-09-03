@@ -288,6 +288,13 @@ class Exporter(object):
         self, ax, collection, force_pathtrans=None, force_offsettrans=None
     ):
         """Process a matplotlib collection and call renderer.draw_collection"""
+        if hasattr(self.renderer, "draw_quadmesh") and type(collection).__name__ in (
+            "QuadMesh",
+            "PolyQuadMesh",
+        ):
+            if self.renderer.draw_quadmesh(ax, collection):
+                return
+
         (transform, transOffset, offsets, paths) = collection._prepare_points()
 
         offset_coords, offsets = self.process_transform(
