@@ -22,6 +22,7 @@ import io
 import traceback
 import warnings
 import webbrowser
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 import matplotlib
@@ -717,7 +718,15 @@ def _html_entry(entry, index):
     return "".join(parts)
 
 
-def makegallery(filename="plotly_gallery.html", output_folder=".", functions=None):
+def _process_entry_spec(entry_spec):
+    name, code = entry_spec[0], entry_spec[1]
+    min_mpl_version = entry_spec[2] if len(entry_spec) > 2 else None
+    return _process_entry(name, code, min_mpl_version)
+
+
+def makegallery(
+    filename="plotly_gallery.html", output_folder=".", functions=None, workers=None
+):
     """Build the gallery HTML page.
 
     Parameters
@@ -728,31 +737,47 @@ def makegallery(filename="plotly_gallery.html", output_folder=".", functions=Non
         Folder in which the HTML file is written.
     functions : list of str, optional
         Names of gallery entries to include.  Defaults to all entries.
+    workers : int, optional
+        Number of parallel worker processes.  Defaults to all available CPU cores.
+        Set to 1 for sequential execution.
     """
     names = [entry[0] for entry in GALLERY_ENTRIES]
     if functions is not None:
         unknown = [f for f in functions if f not in names]
         if unknown:
             raise ValueError(f"Unknown gallery function(s): {unknown}")
-        names = [f for f in names if f in functions]
+        names = set(functions)
 
-    print(f"Generating plotly gallery with {len(names)} entries ...")
+    target_specs = [entry for entry in GALLERY_ENTRIES if entry[0] in names]
+    print(
+        f"Generating plotly gallery with {len(target_specs)} entries "
+        f"(using {workers or 'all'} worker processes) ...",
+        flush=True,
+    )
 
     entries = []
-    for entry_spec in GALLERY_ENTRIES:
-        name, code = entry_spec[0], entry_spec[1]
-        if name not in names:
-            continue
-        min_mpl_version = entry_spec[2] if len(entry_spec) > 2 else None
-        entry = _process_entry(name, code, min_mpl_version)
-        entries.append(entry)
-        status = (
-            f"  {entry['name']:<12} native: {'OK' if entry['nativeOK'] else 'FAIL':<4} "
-            f"plotly: {'OK' if entry['plotlyOK'] else 'FAIL'}"
-        )
-        if not entry["nativeOK"] and entry["nativeError"]:
-            status += f"  [{entry['nativeError']}]"
-        print(status, flush=True)
+    if workers == 1:
+        iterator = map(_process_entry_spec, target_specs)
+        for entry in iterator:
+            entries.append(entry)
+            status = (
+                f"  {entry['name']:<12} native: {'OK' if entry['nativeOK'] else 'FAIL':<4} "
+                f"plotly: {'OK' if entry['plotlyOK'] else 'FAIL'}"
+            )
+            if not entry["nativeOK"] and entry["nativeError"]:
+                status += f"  [{entry['nativeError']}]"
+            print(status, flush=True)
+    else:
+        with ProcessPoolExecutor(max_workers=workers) as executor:
+            for entry in executor.map(_process_entry_spec, target_specs):
+                entries.append(entry)
+                status = (
+                    f"  {entry['name']:<12} native: {'OK' if entry['nativeOK'] else 'FAIL':<4} "
+                    f"plotly: {'OK' if entry['plotlyOK'] else 'FAIL'}"
+                )
+                if not entry["nativeOK"] and entry["nativeError"]:
+                    status += f"  [{entry['nativeError']}]"
+                print(status, flush=True)
 
     parts = [_html_header()]
     total = len(entries)
