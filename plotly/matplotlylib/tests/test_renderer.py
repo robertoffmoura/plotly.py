@@ -1451,3 +1451,27 @@ def test_contourf3d_converts():
         assert len(trace.j) == len(trace.i)
         assert len(trace.k) == len(trace.i)
     assert plotly_fig.layout.scene.zaxis.range[0] <= -1.0
+
+
+def test_wireframe_converts():
+    """3D wireframe plots convert to scatter3d line traces."""
+    x = np.linspace(-3, 3, 10)
+    X, Y = np.meshgrid(x, x)
+    Z = np.sin(X) * np.cos(Y)
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")
+    wf = ax.plot_wireframe(X, Y, Z, color="red", linewidth=2.0)
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    traces = plotly_fig.data
+    assert len(traces) == 1
+    assert traces[0].type == "scatter3d"
+    assert traces[0].mode == "lines"
+    assert traces[0].line.color == "#FF0000"
+    assert traces[0].line.width == 2.0
+    # Grid lines are separated by None
+    assert None in traces[0].x
+    assert None in traces[0].y
+    assert None in traces[0].z
+    assert len(traces[0].x) > 0

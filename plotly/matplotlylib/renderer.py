@@ -7,6 +7,7 @@ with the matplotlylib package.
 
 """
 
+from collections import defaultdict
 import warnings
 
 import matplotlib.patches as mpatches
@@ -1128,6 +1129,9 @@ class PlotlyRenderer(Renderer):
         elif self.current_is_3d and hasattr(props["mplobj"], "_offsets3d"):
             self.msg += "    Drawing a 3d path collection as markers\n"
             self._draw_3d_markers(props)
+        elif self.current_is_3d and hasattr(props["mplobj"], "_segments3d"):
+            self.msg += "    Drawing a 3d line collection (wireframe)\n"
+            self._draw_wireframe3d(props)
         elif props["offset_coordinates"] == "data":
             markerstyle = mpltools.get_markerstyle_from_collection(props)
             scatter_props = {
@@ -1334,6 +1338,60 @@ class PlotlyRenderer(Renderer):
                     ax_obj.range = [vmin, vmax]
 
         self.msg += "    Heck yeah, I drew that 3d filled contour set\n"
+
+    def _draw_wireframe3d(self, props):
+        """Draw a 3D line collection (e.g. wireframe) as scatter3d line traces."""
+        mplobj = props["mplobj"]
+        segments = getattr(mplobj, "_segments3d", None)
+        if not segments:
+            return
+
+        edgecolors = mplobj.get_edgecolors()
+        linewidths = mplobj.get_linewidth()
+
+        # Group segments by (color, width) to minimize trace count
+        groups = defaultdict(lambda: {"x": [], "y": [], "z": []})
+        valid_segs = []
+        for i, seg in enumerate(segments):
+            seg = np.asarray(seg)
+            if len(seg) == 0:
+                continue
+            valid_segs.append(seg)
+            ec = edgecolors[i % len(edgecolors)] if len(edgecolors) else "blue"
+            color = _export_color(ec)
+            lw = float(linewidths[i % len(linewidths)]) if len(linewidths) else 1.5
+            grp = groups[(color, lw)]
+            if grp["x"]:
+                grp["x"].append(None)
+                grp["y"].append(None)
+                grp["z"].append(None)
+            grp["x"].extend(seg[:, 0])
+            grp["y"].extend(seg[:, 1])
+            grp["z"].extend(seg[:, 2])
+
+        for (color, lw), coords in groups.items():
+            self.plotly_fig.add_trace(
+                go.Scatter3d(
+                    x=coords["x"],
+                    y=coords["y"],
+                    z=coords["z"],
+                    mode="lines",
+                    line=dict(color=color, width=lw),
+                    scene=self.current_3d_subplot,
+                )
+            )
+
+        if valid_segs:
+            stacked = np.vstack(valid_segs)
+            scene = self.plotly_fig["layout"][self.current_3d_subplot]
+            for idx, axis_name in enumerate(["x", "y", "z"]):
+                ax_obj = getattr(scene, f"{axis_name}axis", None)
+                if ax_obj and ax_obj.range:
+                    vmin = float(min(ax_obj.range[0], stacked[:, idx].min()))
+                    vmax = float(max(ax_obj.range[1], stacked[:, idx].max()))
+                    ax_obj.range = [vmin, vmax]
+
+        self.msg += "    Heck yeah, I drew that 3d line collection\n"
 
     def _contour_level_color(self, cs, level, index=0):
         """Return the plotly color for one contour level."""
