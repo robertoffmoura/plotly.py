@@ -27,6 +27,27 @@ def _export_color(color):
     return [_export_color(c) for c in color]
 
 
+def _bar_orientation(trace):
+    """Return "v" or "h" for a list of normalized mpl bars.
+
+    Vertical bars share a width; horizontal bars share a height.  When both
+    hold (e.g. a single bar), a monotonically increasing x decides.
+    """
+    tol = 1e-10
+    widths = [bar["x1"] - bar["x0"] for bar in trace]
+    heights = [bar["y1"] - bar["y0"] for bar in trace]
+    vertical = abs(sum(widths[0] - w for w in widths)) < tol
+    horizontal = abs(sum(heights[0] - h for h in heights)) < tol
+    if vertical and horizontal:
+        x0s = [bar["x0"] for bar in trace]
+        if all(x0s[i + 1] > x0s[i] for i in range(len(x0s) - 1)):
+            return "v"
+        return "h"
+    if vertical:
+        return "v"
+    return "h"
+
+
 class PlotlyRenderer(Renderer):
     """A renderer class inheriting from base for rendering mpl plots in plotly.
 
@@ -261,12 +282,15 @@ class PlotlyRenderer(Renderer):
                     ],
                 )
             )
+        # stack/group decisions need the normalized bars of every container
+        prepared = []
+        for _, trace in mpl_traces:
+            prepared.append((trace, [mpltools.make_bar(**bp) for bp in trace]))
         # stacked containers: bars that do not start at the axis (y0 for
         # vertical bars, x0 for horizontal ones)
-        for _, trace in mpl_traces:
-            trace_bars = [mpltools.make_bar(**bar_props) for bar_props in trace]
-            widths = [b["x1"] - b["x0"] for b in trace_bars]
-            if len(set(round(w, 10) for w in widths)) == 1:
+        for trace, trace_bars in prepared:
+            orientation = _bar_orientation(trace_bars)
+            if orientation == "v":
                 stacked = any(b["y0"] != 0 for b in trace_bars)
                 hovermode = "x"
             else:
@@ -279,14 +303,12 @@ class PlotlyRenderer(Renderer):
         # a container is grouped only when its bars touch or overlap those
         # of another container along the category axis
         spans = []
-        for _, trace in mpl_traces:
-            trace_bars = [mpltools.make_bar(**bar_props) for bar_props in trace]
-            widths = [bar["x1"] - bar["x0"] for bar in trace_bars]
-            heights = [bar["y1"] - bar["y0"] for bar in trace_bars]
-            if len(set(round(w, 10) for w in widths)) == 1:
-                spans.append([(bar["x0"], bar["x1"]) for bar in trace_bars])
+        for _, trace_bars in prepared:
+            orientation = _bar_orientation(trace_bars)
+            if orientation == "v":
+                spans.append([(b["x0"], b["x1"]) for b in trace_bars])
             else:
-                spans.append([(bar["y0"], bar["y1"]) for bar in trace_bars])
+                spans.append([(b["y0"], b["y1"]) for b in trace_bars])
         for i, (container, trace) in enumerate(mpl_traces):
             is_grouped = False
             for j, other in enumerate(spans):
@@ -311,27 +333,10 @@ class PlotlyRenderer(Renderer):
         patch_coll -- a collection of patches to be drawn as a bar chart.
 
         """
-        tol = 1e-10
         trace = [mpltools.make_bar(**bar_props) for bar_props in coll]
         widths = [bar_props["x1"] - bar_props["x0"] for bar_props in trace]
         heights = [bar_props["y1"] - bar_props["y0"] for bar_props in trace]
-        vertical = abs(sum(widths[0] - widths[iii] for iii in range(len(widths)))) < tol
-        horizontal = (
-            abs(sum(heights[0] - heights[iii] for iii in range(len(heights)))) < tol
-        )
-        if vertical and horizontal:
-            # Check for monotonic x. Can't both be true!
-            x_zeros = [bar_props["x0"] for bar_props in trace]
-            if all(
-                (x_zeros[iii + 1] > x_zeros[iii] for iii in range(len(x_zeros[:-1])))
-            ):
-                orientation = "v"
-            else:
-                orientation = "h"
-        elif vertical:
-            orientation = "v"
-        else:
-            orientation = "h"
+        orientation = _bar_orientation(trace)
         bar_gap = None
         if orientation == "v":
             self.msg += "    Attempting to draw a vertical bar chart\n"
