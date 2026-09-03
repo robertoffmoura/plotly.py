@@ -371,6 +371,24 @@ GALLERY_ENTRIES = [
         "3.11",
     ),
     (
+        "grouped_bar_h",
+        "plt.grouped_bar({'g1': [1, 2, 3], 'g2': [2, 3, 4]},"
+        + " orientation='horizontal')",
+        "3.11",
+    ),
+    (
+        "disjoint_bars",
+        "ax = plt.gca()\n"
+        + "ax.bar([0, 1, 2], [1, 2, 3], label='a')\n"
+        + "ax.bar([5, 6, 7], [4, 5, 6], label='b')",
+    ),
+    (
+        "stacked_bars",
+        "ax = plt.gca()\n"
+        + "ax.bar([0, 1, 2], [1, 2, 3], label='bottom')\n"
+        + "ax.bar([0, 1, 2], [1, 1, 1], bottom=[1, 2, 3], label='top')",
+    ),
+    (
         "pie_label",
         "c = plt.pie([3, 5, 2, 4])\n" + "plt.pie_label(c, ['a', 'b', 'c', 'd'])",
         "3.11",
