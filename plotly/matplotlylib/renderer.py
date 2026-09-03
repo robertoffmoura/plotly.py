@@ -9,9 +9,33 @@ with the matplotlylib package.
 
 import warnings
 
+import matplotlib.axes
 import plotly.graph_objs as go
 from plotly.matplotlylib.mplexporter import Renderer
 from plotly.matplotlylib import mpltools
+
+if (
+    hasattr(matplotlib.axes.Axes, "grouped_bar")
+    and getattr(matplotlib.axes.Axes.grouped_bar, "__name__", None)
+    != "_patched_grouped_bar"
+):
+    _original_grouped_bar = matplotlib.axes.Axes.grouped_bar
+
+    def _patched_grouped_bar(self, heights, *args, **kwargs):
+        res = _original_grouped_bar(self, heights, *args, **kwargs)
+        positions = kwargs.get("positions")
+        if positions is not None:
+            group_centers = list(positions)
+        elif res.bar_containers and res.bar_containers[0].patches:
+            group_centers = list(range(len(res.bar_containers[0].patches)))
+        else:
+            group_centers = None
+        for c in res.bar_containers:
+            c._is_grouped_bar = True
+            c._grouped_bar_positions = group_centers
+        return res
+
+    matplotlib.axes.Axes.grouped_bar = _patched_grouped_bar
 
 
 def _export_color(color):
@@ -300,42 +324,9 @@ class PlotlyRenderer(Renderer):
                 self.plotly_fig["layout"]["barmode"] = "stack"
                 self.plotly_fig["layout"]["hovermode"] = hovermode
                 break
-        # a container is grouped only when its bars touch or overlap those
-        # of another container along the category axis
-        spans = []
-        for _, trace_bars in prepared:
-            orientation = _bar_orientation(trace_bars)
-            if orientation == "v":
-                spans.append([(b["x0"], b["x1"]) for b in trace_bars])
-            else:
-                spans.append([(b["y0"], b["y1"]) for b in trace_bars])
-        for i, (container, trace) in enumerate(mpl_traces):
-            overlapping = [
-                j
-                for j, other in enumerate(spans)
-                if i == j
-                or any(
-                    a0 <= b1 and b0 <= a1 for (a0, a1) in spans[i] for (b0, b1) in other
-                )
-            ]
-            is_grouped = len(overlapping) > 1
-            # the hover category of the k-th bar is the mean of its center
-            # across the overlapping containers (the shared group position)
-            customdata = None
-            if is_grouped:
-                orientation = _bar_orientation(prepared[i][1])
-                customdata = []
-                for k in range(len(trace)):
-                    centers = []
-                    for j in overlapping:
-                        other_bars = prepared[j][1]
-                        if k < len(other_bars):
-                            bar = other_bars[k]
-                            if orientation == "v":
-                                centers.append((bar["x0"] + bar["x1"]) / 2)
-                            else:
-                                centers.append((bar["y0"] + bar["y1"]) / 2)
-                    customdata.append(round(sum(centers) / len(centers), 9))
+        for container, trace in mpl_traces:
+            is_grouped = getattr(container, "_is_grouped_bar", False)
+            customdata = getattr(container, "_grouped_bar_positions", None)
             label = container.get_label()
             name = label if label and not label.startswith("_") else None
             self.draw_bar(

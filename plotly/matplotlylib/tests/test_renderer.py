@@ -455,20 +455,32 @@ def test_grouped_bar_hover_shows_positions():
         assert all(abs(c - p) < 1e-6 for c, p in zip(trace.customdata, [10, 20, 30]))
 
 
-def test_mixed_grouped_and_disjoint_bars_hover_position():
-    """Grouped bars mixed with disjoint bars only average centers of overlapping containers."""
+def test_manual_touching_bars_keep_real_positions_in_hover():
+    """Manually positioned touching bars keep their explicit data coordinates
+    in hover, rather than an averaged group position."""
     fig, ax = plt.subplots()
-    # Grouped bars centered around 0 and 1
     ax.bar([-0.2, 0.8], [1, 2], width=0.4, label="g1")
     ax.bar([0.2, 1.2], [3, 4], width=0.4, label="g2")
-    # Disjoint bar at 10 and 11
     ax.bar([10, 11], [5, 6], width=0.4, label="other")
 
     plotly_fig = tls.mpl_to_plotly(fig)
 
     assert len(plotly_fig.data) == 3
-    assert plotly_fig.data[0].customdata is not None
-    assert plotly_fig.data[1].customdata is not None
+    for trace in plotly_fig.data:
+        assert trace.customdata is None
+        assert trace.hovertemplate is None
+
+
+def test_grouped_bar_and_disjoint_bars():
+    """Grouped bars mixed with disjoint bars show the group index for the
+    grouped bars and the real position for the disjoint bars."""
+    fig, ax = plt.subplots()
+    plt.grouped_bar({"g1": [1, 2], "g2": [3, 4]})
+    ax.bar([10, 11], [5, 6], label="other")
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert len(plotly_fig.data) == 3
     assert all(
         abs(c - p) < 1e-6 for c, p in zip(plotly_fig.data[0].customdata, [0.0, 1.0])
     )
