@@ -263,16 +263,18 @@ class PlotlyRenderer(Renderer):
             )
         # stacked containers: bars that do not start at the axis (y0 for
         # vertical bars, x0 for horizontal ones)
-        stacked = False
         for _, trace in mpl_traces:
             trace_bars = [mpltools.make_bar(**bar_props) for bar_props in trace]
             widths = [b["x1"] - b["x0"] for b in trace_bars]
             if len(set(round(w, 10) for w in widths)) == 1:
                 stacked = any(b["y0"] != 0 for b in trace_bars)
+                hovermode = "x"
             else:
                 stacked = any(b["x0"] != 0 for b in trace_bars)
+                hovermode = "y"
             if stacked:
                 self.plotly_fig["layout"]["barmode"] = "stack"
+                self.plotly_fig["layout"]["hovermode"] = hovermode
                 break
         # a container is grouped only when its bars touch or overlap those
         # of another container along the category axis
@@ -333,15 +335,8 @@ class PlotlyRenderer(Renderer):
         bar_gap = None
         if orientation == "v":
             self.msg += "    Attempting to draw a vertical bar chart\n"
-            old_heights = [bar_props["y1"] for bar_props in trace]
             for bar in trace:
                 bar["y0"], bar["y1"] = 0, bar["y1"] - bar["y0"]
-            new_heights = [bar_props["y1"] for bar_props in trace]
-            # check if we're stacked or not...
-            for old, new in zip(old_heights, new_heights):
-                if abs(old - new) > tol:
-                    self.plotly_fig["layout"]["barmode"] = "stack"
-                    self.plotly_fig["layout"]["hovermode"] = "x"
             x = [bar["x0"] + (bar["x1"] - bar["x0"]) / 2 for bar in trace]
             y = [bar["y1"] for bar in trace]
             # grouped bars carry explicit widths, so no bargap is needed
@@ -353,15 +348,8 @@ class PlotlyRenderer(Renderer):
                 x = self._convert_x_dates([bar["x0"] for bar in trace])
         else:
             self.msg += "    Attempting to draw a horizontal bar chart\n"
-            old_rights = [bar_props["x1"] for bar_props in trace]
             for bar in trace:
                 bar["x0"], bar["x1"] = 0, bar["x1"] - bar["x0"]
-            new_rights = [bar_props["x1"] for bar_props in trace]
-            # check if we're stacked or not...
-            for old, new in zip(old_rights, new_rights):
-                if abs(old - new) > tol:
-                    self.plotly_fig["layout"]["barmode"] = "stack"
-                    self.plotly_fig["layout"]["hovermode"] = "y"
             x = [bar["x1"] for bar in trace]
             y = [bar["y0"] + (bar["y1"] - bar["y0"]) / 2 for bar in trace]
             if not is_grouped:

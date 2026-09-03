@@ -396,6 +396,7 @@ def test_stacked_multi_container_bars_no_ordinal_hover():
     plotly_fig = tls.mpl_to_plotly(fig)
 
     assert plotly_fig.layout.barmode == "stack"
+    assert plotly_fig.layout.hovermode == "x"
     for trace in plotly_fig.data:
         assert trace.customdata is None
 
