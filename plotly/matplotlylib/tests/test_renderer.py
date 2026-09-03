@@ -1577,3 +1577,20 @@ def test_tricontour3d_converts():
     traces = plotly_fig.data
     assert len(traces) > 0
     assert all(t.type == "scatter3d" and t.mode == "lines" for t in traces)
+
+
+def test_tricontourf3d_converts():
+    """Filled 3D triangular contour plots convert to mesh3d traces."""
+    np.random.seed(42)
+    x = np.random.rand(30)
+    y = np.random.rand(30)
+    z = x + y
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")
+    ax.tricontourf(x, y, z, 5, zdir="z", offset=-1)
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    traces = plotly_fig.data
+    assert len(traces) > 0
+    assert all(t.type == "mesh3d" for t in traces)
