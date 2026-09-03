@@ -2077,6 +2077,91 @@ class PlotlyRenderer(Renderer):
         if traces:
             self.plotly_fig.add_traces(traces)
 
+    def draw_quadmesh(self, ax, collection):
+        """Draw a rectilinear QuadMesh or PolyQuadMesh as a single go.Heatmap trace."""
+        if getattr(ax, "name", None) == "polar" or self.current_is_polar:
+            return False
+
+        if not hasattr(collection, "get_coordinates") or not hasattr(
+            collection, "get_array"
+        ):
+            return False
+
+        try:
+            coords = collection.get_coordinates()
+            z = collection.get_array()
+        except Exception:
+            return False
+
+        if coords is None or z is None:
+            return False
+
+        if coords.ndim != 3 or coords.shape[2] != 2:
+            return False
+
+        x_grid = coords[:, :, 0]
+        y_grid = coords[:, :, 1]
+        if not (
+            np.allclose(x_grid, x_grid[0:1, :]) and np.allclose(y_grid, y_grid[:, 0:1])
+        ):
+            return False
+
+        num_rows = coords.shape[0] - 1
+        num_cols = coords.shape[1] - 1
+        z_arr = np.asarray(z)
+        if z_arr.size != num_rows * num_cols:
+            return False
+        if z_arr.ndim != 2 or z_arr.shape != (num_rows, num_cols):
+            z_arr = z_arr.reshape((num_rows, num_cols))
+
+        if np.ma.is_masked(z_arr):
+            z_data = z_arr.filled(np.nan).tolist()
+        else:
+            z_data = z_arr.tolist()
+
+        x_edges = x_grid[0, :].tolist()
+        y_edges = y_grid[:, 0].tolist()
+
+        cmap = collection.get_cmap()
+        colorscale = [
+            [
+                float(s),
+                f"rgb({int(rgba[0] * 255)},{int(rgba[1] * 255)},{int(rgba[2] * 255)})",
+            ]
+            for s in np.linspace(0, 1, 25)
+            for rgba in [cmap(s)]
+        ]
+
+        clim = collection.get_clim()
+        zmin = float(clim[0]) if clim[0] is not None and not np.isnan(clim[0]) else None
+        zmax = float(clim[1]) if clim[1] is not None and not np.isnan(clim[1]) else None
+
+        showscale = hasattr(collection, "colorbar") and collection.colorbar is not None
+
+        trace = dict(
+            type="heatmap",
+            x=x_edges,
+            y=y_edges,
+            z=z_data,
+            colorscale=colorscale,
+            showscale=showscale,
+            hovertemplate="x: %{x}<br>y: %{y}<br>z: %{z}<extra></extra>",
+            xaxis="x{0}".format(self.axis_ct),
+            yaxis="y{0}".format(self.axis_ct),
+        )
+
+        if zmin is not None:
+            trace["zmin"] = zmin
+        if zmax is not None:
+            trace["zmax"] = zmax
+
+        alpha = collection.get_alpha()
+        if alpha is not None:
+            trace["opacity"] = float(alpha)
+
+        self.plotly_fig.add_traces([trace])
+        return True
+
     def draw_path(self, **props):
         """Draw a bar chart path or a matplotlib step patch.
 
