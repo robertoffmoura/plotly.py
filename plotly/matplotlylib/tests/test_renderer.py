@@ -1385,6 +1385,9 @@ def test_hexbin_converts():
     p1 = ax.transData.transform((x1, y1))
     expected_size = max(p1[0] - p0[0], p1[1] - p0[1])
     assert abs(trace.marker.size - expected_size) < 1e-6
+    assert len(trace.marker.colorscale) == 25
+    assert trace.marker.cmin == hb.get_clim()[0]
+    assert trace.marker.cmax == hb.get_clim()[1]
 
 
 def test_imshow_converts():
