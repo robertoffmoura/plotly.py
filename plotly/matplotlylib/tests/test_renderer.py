@@ -370,6 +370,7 @@ def test_grouped_bar_hover_shows_index():
     for trace in plotly_fig.data:
         assert list(trace.customdata) == [0, 1, 2]
         assert "%{customdata}" in trace.hovertemplate
+        assert "<extra>%{fullData.name}</extra>" in trace.hovertemplate
 
 
 def test_disjoint_bar_series_keep_real_x_in_hover():
@@ -410,6 +411,20 @@ def test_grouped_bar_horizontal_hover_shows_index():
         assert list(trace.customdata) == [0, 1, 2]
         assert "%{x}" in trace.hovertemplate
         assert "%{customdata}" in trace.hovertemplate
+
+
+def test_grouped_bar_unlabeled_hover_has_no_extra_box():
+    """Unnamed grouped bars keep the ordinal hover without an empty name
+    box."""
+    fig, ax = plt.subplots()
+    plt.grouped_bar([[1, 2, 3], [2, 3, 4]])
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert len(plotly_fig.data) == 2
+    for trace in plotly_fig.data:
+        assert trace.name is None
+        assert list(trace.customdata) == [0, 1, 2]
+        assert "<extra>" not in trace.hovertemplate
 
 
 def test_custom_date_xtickvals_given_as_numbers_are_converted():

@@ -394,13 +394,12 @@ class PlotlyRenderer(Renderer):
             customdata = list(range(len(trace)))
             bar_kwargs["customdata"] = customdata
             if orientation == "v":
-                bar_kwargs["hovertemplate"] = (
-                    "(%{customdata}, %{y})<extra>%{fullData.name}</extra>"
-                )
+                hover = "(%{customdata}, %{y})"
             else:
-                bar_kwargs["hovertemplate"] = (
-                    "(%{x}, %{customdata})<extra>%{fullData.name}</extra>"
-                )
+                hover = "(%{x}, %{customdata})"
+            if name:
+                hover += "<extra>%{fullData.name}</extra>"
+            bar_kwargs["hovertemplate"] = hover
         bar = go.Bar(**bar_kwargs)
         if len(bar["x"]) > 1:
             self.msg += "    Heck yeah, I drew that bar chart\n"
