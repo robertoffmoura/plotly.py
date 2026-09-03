@@ -394,7 +394,14 @@ GALLERY_ENTRIES = [
         "3.11",
     ),
     (
-        "disjoint_bars_review",
+        "grouped_and_disjoint_bars",
+        "ax = plt.gca()\n"
+        + "plt.grouped_bar({'g1': [1, 2], 'g2': [3, 4]})\n"
+        + "ax.bar([10, 11], [5, 6], label='other')",
+        "3.11",
+    ),
+    (
+        "disjoint_bars_manual",
         "ax = plt.gca()\n"
         + "ax.bar([-0.2, 0.8], [1, 2], width=0.4, label='g1')\n"
         + "ax.bar([0.2, 1.2], [3, 4], width=0.4, label='g2')\n"
