@@ -756,9 +756,14 @@ def makegallery(
     )
 
     entries = []
-    if workers == 1:
-        iterator = map(_process_entry_spec, target_specs)
-        for entry in iterator:
+    pool = None if workers == 1 else ProcessPoolExecutor(max_workers=workers)
+    try:
+        results = (
+            map(_process_entry_spec, target_specs)
+            if pool is None
+            else pool.map(_process_entry_spec, target_specs)
+        )
+        for entry in results:
             entries.append(entry)
             status = (
                 f"  {entry['name']:<12} native: {'OK' if entry['nativeOK'] else 'FAIL':<4} "
@@ -767,17 +772,9 @@ def makegallery(
             if not entry["nativeOK"] and entry["nativeError"]:
                 status += f"  [{entry['nativeError']}]"
             print(status, flush=True)
-    else:
-        with ProcessPoolExecutor(max_workers=workers) as executor:
-            for entry in executor.map(_process_entry_spec, target_specs):
-                entries.append(entry)
-                status = (
-                    f"  {entry['name']:<12} native: {'OK' if entry['nativeOK'] else 'FAIL':<4} "
-                    f"plotly: {'OK' if entry['plotlyOK'] else 'FAIL'}"
-                )
-                if not entry["nativeOK"] and entry["nativeError"]:
-                    status += f"  [{entry['nativeError']}]"
-                print(status, flush=True)
+    finally:
+        if pool is not None:
+            pool.shutdown()
 
     parts = [_html_header()]
     total = len(entries)
