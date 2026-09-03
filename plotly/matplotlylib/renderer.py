@@ -14,6 +14,7 @@ import matplotlib.collections as mcollections
 import matplotlib.quiver as mquiver
 from matplotlib import transforms
 from matplotlib import colors as mcolors
+from matplotlib import path as mpath
 import numpy as np
 import plotly.graph_objs as go
 from plotly.matplotlylib.mplexporter import Renderer
@@ -1192,12 +1193,14 @@ class PlotlyRenderer(Renderer):
         drawn at the corresponding level."""
         cs = props["mplobj"]
         if cs.filled:
-            self.msg += "    Filled 3d contours are not supported, not drawing\n"
-            warnings.warn("Filled 3d contours are not supported yet. Not drawing.")
+            self._draw_contourf3d(props)
             return
+        scene = self.plotly_fig["layout"][self.current_3d_subplot]
+        all_verts = []
         for i, (verts, codes) in enumerate(cs._3dverts_codes):
             if len(verts) == 0:
                 continue
+            all_verts.append(verts)
             x = []
             y = []
             z = []
@@ -1221,7 +1224,116 @@ class PlotlyRenderer(Renderer):
                     line=go.scatter3d.Line(color=color),
                 )
             )
+        if all_verts:
+            stacked = np.vstack(all_verts)
+            for idx, axis_name in enumerate(["x", "y", "z"]):
+                ax_obj = getattr(scene, f"{axis_name}axis", None)
+                if ax_obj and ax_obj.range:
+                    vmin = float(min(ax_obj.range[0], stacked[:, idx].min()))
+                    vmax = float(max(ax_obj.range[1], stacked[:, idx].max()))
+                    ax_obj.range = [vmin, vmax]
         self.msg += "    Heck yeah, I drew that 3d contour set\n"
+
+    def _draw_contourf3d(self, props):
+        """Draw a filled 3D contour set as mesh3d surfaces."""
+        import matplotlib.tri as mtri
+
+        cs = props["mplobj"]
+        facecolors = getattr(cs, "get_facecolors", lambda: [])()
+        scene = self.plotly_fig["layout"][self.current_3d_subplot]
+
+        all_verts = []
+        for i, (verts, codes) in enumerate(cs._3dverts_codes):
+            if len(verts) == 0:
+                continue
+            all_verts.append(verts)
+            ranges = verts.max(axis=0) - verts.min(axis=0)
+            normal_idx = int(np.argmin(ranges))
+            u_idx, v_idx = [idx for idx in range(3) if idx != normal_idx]
+            pts_2d = verts[:, [u_idx, v_idx]]
+
+            movetos = np.where(codes == 1)[0] if codes is not None else np.array([0])
+            ends = list(movetos[1:]) + [len(verts)]
+            outers = []
+            holes = []
+            for s, e in zip(movetos, ends):
+                sub = pts_2d[s:e]
+                if len(sub) < 3:
+                    continue
+                area = 0.5 * np.sum(sub[:-1, 0] * sub[1:, 1] - sub[1:, 0] * sub[:-1, 1])
+                path_obj = mpath.Path(sub)
+                if area > 0:
+                    outers.append(path_obj)
+                else:
+                    holes.append(path_obj)
+
+            unique_pts_2d, unique_indices = np.unique(pts_2d, axis=0, return_index=True)
+            if len(unique_pts_2d) < 3 or not outers:
+                continue
+
+            try:
+                tri = mtri.Triangulation(unique_pts_2d[:, 0], unique_pts_2d[:, 1])
+                tris = tri.triangles
+                centroids = unique_pts_2d[tris].mean(axis=1)
+
+                in_outer = np.any(
+                    [o.contains_points(centroids) for o in outers], axis=0
+                )
+                in_hole = (
+                    np.any([h.contains_points(centroids) for h in holes], axis=0)
+                    if holes
+                    else np.zeros(len(centroids), dtype=bool)
+                )
+                mask = in_outer & (~in_hole)
+                kept_tris = tris[mask]
+                if len(kept_tris) == 0:
+                    continue
+
+                unique_verts_3d = verts[unique_indices]
+                if i < len(facecolors):
+                    fc = facecolors[i]
+                else:
+                    level = cs._levels[i] if i < len(cs._levels) else cs._levels[-1]
+                    fc = cs.cmap(cs.norm(level))
+                color = _export_color(fc)
+                alpha = float(fc[3]) if len(fc) > 3 else 1.0
+
+                self.plotly_fig.add_trace(
+                    go.Mesh3d(
+                        x=unique_verts_3d[:, 0],
+                        y=unique_verts_3d[:, 1],
+                        z=unique_verts_3d[:, 2],
+                        i=kept_tris[:, 0],
+                        j=kept_tris[:, 1],
+                        k=kept_tris[:, 2],
+                        color=color,
+                        opacity=alpha,
+                        lighting=dict(
+                            ambient=1.0,
+                            diffuse=0.0,
+                            specular=0.0,
+                            roughness=1.0,
+                            fresnel=0.0,
+                        ),
+                        flatshading=True,
+                        scene=self.current_3d_subplot,
+                    )
+                )
+            except Exception as e:
+                warnings.warn(
+                    "Failed to triangulate contourf3d level {0}: {1}".format(i, e)
+                )
+
+        if all_verts:
+            stacked = np.vstack(all_verts)
+            for idx, axis_name in enumerate(["x", "y", "z"]):
+                ax_obj = getattr(scene, f"{axis_name}axis", None)
+                if ax_obj and ax_obj.range:
+                    vmin = float(min(ax_obj.range[0], stacked[:, idx].min()))
+                    vmax = float(max(ax_obj.range[1], stacked[:, idx].max()))
+                    ax_obj.range = [vmin, vmax]
+
+        self.msg += "    Heck yeah, I drew that 3d filled contour set\n"
 
     def _contour_level_color(self, cs, level, index=0):
         """Return the plotly color for one contour level."""

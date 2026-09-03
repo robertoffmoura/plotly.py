@@ -1429,3 +1429,25 @@ def test_contour3d_converts():
         assert all(abs(v - level) < 1e-9 for v in zs)
     # a middle contour trace has multiple segments separated by None
     assert any(None in t.x for t in traces)
+
+
+def test_contourf3d_converts():
+    """3D filled contours convert to mesh3d surface traces."""
+    x = np.linspace(-3, 3, 30)
+    X, Y = np.meshgrid(x, x)
+    Z = np.sin(X) * np.cos(Y)
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")
+    cs = ax.contourf(X, Y, Z, 10, zdir="z", offset=-1)
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    traces = plotly_fig.data
+    assert len(traces) > 0
+    assert all(t.type == "mesh3d" for t in traces)
+    for trace in traces:
+        assert all(abs(v - (-1.0)) < 1e-9 for v in trace.z)
+        assert len(trace.i) > 0
+        assert len(trace.j) == len(trace.i)
+        assert len(trace.k) == len(trace.i)
+    assert plotly_fig.layout.scene.zaxis.range[0] <= -1.0
