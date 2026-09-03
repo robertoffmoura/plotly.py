@@ -1348,7 +1348,7 @@ class PlotlyRenderer(Renderer):
         """Draw a 3D line collection (e.g. wireframe) as scatter3d line traces."""
         mplobj = props["mplobj"]
         segments = getattr(mplobj, "_segments3d", None)
-        if not segments:
+        if segments is None or len(segments) == 0:
             return
 
         edgecolors = mplobj.get_edgecolors()

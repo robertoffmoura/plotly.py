@@ -1612,3 +1612,16 @@ def test_voxels_converts():
         assert len(t.x) == len(t.y) == len(t.z)
         assert len(t.i) == len(t.j) == len(t.k)
         assert len(t.i) > 0
+
+
+def test_errorbar3d_converts():
+    """3D errorbar plots convert to scatter3d line traces."""
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")
+    ax.errorbar(np.arange(5), np.arange(5), np.arange(5), zerr=0.2)
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    traces = plotly_fig.data
+    assert len(traces) == 2
+    assert all(t.type == "scatter3d" and t.mode == "lines" for t in traces)
