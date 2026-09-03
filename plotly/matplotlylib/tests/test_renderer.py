@@ -1404,3 +1404,28 @@ def test_bar3d_face_colors_follow_faces():
     second_bar = [rgb(c) for c in colors[24:]]
     assert all(r > b for r, g, b in first_bar)
     assert all(b > r for r, g, b in second_bar)
+
+
+def test_contour3d_converts():
+    """3D contour lines convert to scatter3d line traces at each level."""
+    x = np.linspace(-3, 3, 30)
+    y = np.linspace(-3, 3, 30)
+    X, Y = np.meshgrid(x, y)
+    Z = np.sin(np.sqrt(X**2 + Y**2))
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")
+    cs = ax.contour3D(X, Y, Z, 6)
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    traces = plotly_fig.data
+    nonempty = [l for l, p in zip(cs._levels, cs.get_paths()) if len(p.vertices)]
+    assert len(traces) == len(nonempty)
+    assert all(t.type == "scatter3d" for t in traces)
+    assert all(t.mode == "lines" for t in traces)
+    # each trace sits at the contour level height
+    for trace, level in zip(traces, nonempty):
+        zs = [v for v in trace.z if v is not None]
+        assert all(abs(v - level) < 1e-9 for v in zs)
+    # a middle contour trace has multiple segments separated by None
+    assert any(None in t.x for t in traces)

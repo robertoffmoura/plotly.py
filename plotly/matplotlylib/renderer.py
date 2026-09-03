@@ -1119,6 +1119,11 @@ class PlotlyRenderer(Renderer):
         ):
             self.msg += "    Drawing a hexbin as hexagon markers\n"
             self._draw_hexbin(props)
+        elif (
+            self.current_is_3d and type(props["mplobj"]).__name__ == "QuadContourSet3D"
+        ):
+            self.msg += "    Drawing a 3d contour set\n"
+            self._draw_contour3d(props)
         elif self.current_is_3d and hasattr(props["mplobj"], "_offsets3d"):
             self.msg += "    Drawing a 3d path collection as markers\n"
             self._draw_3d_markers(props)
@@ -1178,6 +1183,52 @@ class PlotlyRenderer(Renderer):
                 yaxis="y{0}".format(self.axis_ct),
             )
         )
+
+    def _draw_contour3d(self, props):
+        """Draw a 3D contour set as scatter3d line traces, one per level.
+
+        matplotlib lifts each contour level's merged path to the level
+        height z, so each path here is split into its subpath segments and
+        drawn at the corresponding level."""
+        cs = props["mplobj"]
+        if cs.filled:
+            self.msg += "    Filled 3d contours are not supported, not drawing\n"
+            warnings.warn("Filled 3d contours are not supported yet. Not drawing.")
+            return
+        for i, (verts, codes) in enumerate(cs._3dverts_codes):
+            if len(verts) == 0:
+                continue
+            x = []
+            y = []
+            z = []
+            for j, (vx, vy, vz) in enumerate(verts):
+                if codes is not None and codes[j] == 1 and len(x):
+                    x.append(None)
+                    y.append(None)
+                    z.append(None)
+                x.append(vx)
+                y.append(vy)
+                z.append(vz)
+            level = cs._levels[i]
+            color = self._contour_level_color(cs, level, index=i)
+            self.plotly_fig.add_trace(
+                go.Scatter3d(
+                    mode="lines",
+                    x=x,
+                    y=y,
+                    z=z,
+                    scene=self.current_3d_subplot,
+                    line=go.scatter3d.Line(color=color),
+                )
+            )
+        self.msg += "    Heck yeah, I drew that 3d contour set\n"
+
+    def _contour_level_color(self, cs, level, index=0):
+        """Return the plotly color for one contour level."""
+        colors = getattr(cs, "_colors", None)
+        if colors:
+            return _export_color(colors[index % len(colors)])
+        return _export_color(cs.cmap(cs.norm(level)))
 
     def _draw_bar3d(self, props):
         """Draw a bar3d collection as a mesh3d trace of the box faces.
