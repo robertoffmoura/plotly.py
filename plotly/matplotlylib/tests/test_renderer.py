@@ -333,6 +333,31 @@ def test_uneven_custom_date_xtickvals_are_converted():
     )
 
 
+def test_grouped_bar_bars_touch():
+    """Bars of the same index in grouped bar plots touch each other."""
+    fig, ax = plt.subplots()
+    plt.grouped_bar({"g1": [1, 2, 3], "g2": [2, 3, 4]})
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert len(plotly_fig.data) == 2
+    trace0 = plotly_fig.data[0]
+    trace1 = plotly_fig.data[1]
+
+    assert trace0.width is not None
+    assert trace1.width is not None
+
+    for i in range(3):
+        w0 = (
+            trace0.width[i] if isinstance(trace0.width, (list, tuple)) else trace0.width
+        )
+        w1 = (
+            trace1.width[i] if isinstance(trace1.width, (list, tuple)) else trace1.width
+        )
+        right_edge_0 = trace0.x[i] + w0 / 2
+        left_edge_1 = trace1.x[i] - w1 / 2
+        assert abs(right_edge_0 - left_edge_1) < 1e-6
+
+
 def test_custom_date_xtickvals_given_as_numbers_are_converted():
     """Custom date ticks given as matplotlib date numbers must be converted
     to date strings."""

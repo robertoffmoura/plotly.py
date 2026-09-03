@@ -328,10 +328,12 @@ class PlotlyRenderer(Renderer):
             bar_gap = mpltools.get_bar_gap(
                 [bar["y0"] for bar in trace], [bar["y1"] for bar in trace]
             )
+        bar_width = widths if orientation == "v" else heights
         bar = go.Bar(
             orientation=orientation,
             x=x,
             y=y,
+            width=bar_width,
             xaxis="x{0}".format(self.axis_ct),
             yaxis="y{0}".format(self.axis_ct),
             opacity=trace[0]["alpha"],  # TODO: get all alphas if array?
