@@ -1540,3 +1540,23 @@ def test_trisurf3d_face_colors_follow_faces():
     c1 = parse_rgb(fc[1])
     # Face 1 is higher z than face 0; in viridis, higher value has higher green
     assert c1[1] > c0[1]
+
+
+def test_text3d_converts():
+    """3D text annotations convert to scene annotations."""
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")
+    ax.text(1, 2, 3, "hello 3d", color="red", fontsize=14)
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    scene = plotly_fig.layout.scene
+    assert len(scene.annotations) == 1
+    ann = scene.annotations[0]
+    assert ann.text == "hello 3d"
+    assert ann.x == 1.0
+    assert ann.y == 2.0
+    assert ann.z == 3.0
+    assert ann.font.color == "#FF0000"
+    assert ann.font.size == 14
+    assert ann.showarrow is False

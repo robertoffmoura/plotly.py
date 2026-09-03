@@ -2023,7 +2023,9 @@ class PlotlyRenderer(Renderer):
 
         """
         self.msg += "    Attempting to draw an mpl text object\n"
-        if not mpltools.check_corners(props["mplobj"], self.mpl_fig):
+        if not self.current_is_3d and not mpltools.check_corners(
+            props["mplobj"], self.mpl_fig
+        ):
             warnings.warn(
                 "Looks like the annotation(s) you are trying \n"
                 "to draw lies/lay outside the given figure size.\n\n"
@@ -2072,6 +2074,44 @@ class PlotlyRenderer(Renderer):
                 yref = "paper"
                 xanchor = props["style"]["halign"]  # no difference here!
                 yanchor = mpltools.convert_va(props["style"]["valign"])
+            elif self.current_is_3d:
+                self.msg += "        Drawing 3d text as scene annotation\n"
+                if hasattr(props.get("mplobj"), "get_position_3d"):
+                    x, y, z = props["mplobj"].get_position_3d()
+                elif hasattr(props.get("mplobj"), "_position3d"):
+                    x, y, z = props["mplobj"]._position3d
+                else:
+                    x, y = props["position"]
+                    z = 0.0
+                scene = self.plotly_fig["layout"][self.current_3d_subplot]
+                font_color = _export_color(props["style"]["color"])
+                annotation = go.layout.scene.Annotation(
+                    text=(
+                        str(props["text"])
+                        if isinstance(props["text"], str)
+                        else props["text"]
+                    ),
+                    x=float(x),
+                    y=float(y),
+                    z=float(z),
+                    opacity=props["style"]["alpha"],
+                    showarrow=False,
+                    xanchor=props["style"]["halign"],
+                    yanchor=mpltools.convert_va(props["style"]["valign"]),
+                    font=dict(
+                        color=font_color,
+                        size=props["style"]["fontsize"],
+                    ),
+                )
+                scene.annotations += (annotation,)
+                for axis_name, val in [("x", x), ("y", y), ("z", z)]:
+                    ax_obj = getattr(scene, f"{axis_name}axis", None)
+                    if ax_obj and ax_obj.range:
+                        vmin = float(min(ax_obj.range[0], val))
+                        vmax = float(max(ax_obj.range[1], val))
+                        ax_obj.range = [vmin, vmax]
+                self.msg += "    Heck, yeah I drew that 3d annotation\n"
+                return
             else:
                 self.msg += "        Text object is linked to 'data' coordinates\n"
                 x, y = props["position"]
