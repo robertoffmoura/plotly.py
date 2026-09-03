@@ -439,10 +439,12 @@ GALLERY_ENTRIES = [
     ),
     (
         "trisurf3d",
-        "ax = plt.axes(projection='3d')\n"
-        + "x = np.random.rand(50)\n"
-        + "y = np.random.rand(50)\n"
-        + "ax.plot_trisurf(x, y, x + y)",
+        "np.random.seed(0)\n"
+        + "x = np.random.uniform(-3, 3, 80)\n"
+        + "y = np.random.uniform(-3, 3, 80)\n"
+        + "z = np.sin(x) * np.cos(y)\n"
+        + "ax = plt.axes(projection='3d')\n"
+        + "ax.plot_trisurf(x, y, z, cmap='viridis')",
     ),
     (
         "quiver3d",
