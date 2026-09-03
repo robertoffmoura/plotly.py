@@ -1107,13 +1107,16 @@ class PlotlyRenderer(Renderer):
         elif self.current_is_3d and isinstance(
             props["mplobj"], mcollections.PolyCollection
         ):
-            if not self._draw_bar3d(props):
-                if not self._draw_trisurf3d(props):
-                    self.msg += "    3d path collection is not bar3d boxes or trisurf, not drawing\n"
-                    warnings.warn(
-                        "3d path collections other than bar3d and trisurf are not "
-                        "supported yet. Not drawing."
-                    )
+            if (
+                not self._draw_bar3d(props)
+                and not self._draw_trisurf3d(props)
+                and not self._draw_voxels3d(props)
+            ):
+                self.msg += "    3d path collection is not bar3d boxes, trisurf, or voxels, not drawing\n"
+                warnings.warn(
+                    "3d path collections other than bar3d, trisurf, and voxels are not "
+                    "supported yet. Not drawing."
+                )
         elif (
             isinstance(props["mplobj"], mcollections.PolyCollection)
             and len(props["paths"]) == 1
@@ -1550,6 +1553,86 @@ class PlotlyRenderer(Renderer):
                 ax_obj.range = [vmin, vmax]
 
         self.msg += "    Heck yeah, I drew that 3d trisurf\n"
+        return True
+
+    def _draw_voxels3d(self, props):
+        """Draw a 3D voxel or quad collection as a mesh3d trace."""
+        mplobj = props["mplobj"]
+        faces = getattr(mplobj, "_faces", None)
+        if faces is None or len(faces) == 0 or faces.shape[1] != 4:
+            return False
+
+        colors3d = getattr(mplobj, "_facecolor3d", None)
+        if colors3d is None or len(colors3d) == 0:
+            colors3d = mplobj.get_facecolors()
+        if len(colors3d) == 0:
+            colors3d = np.array([[0.2, 0.4, 0.6, 1.0]])
+
+        facecolors = mpltools.convert_rgba_array(colors3d)
+        if not isinstance(facecolors, list):
+            facecolors = [facecolors]
+
+        verts = []
+        vertexcolor = []
+        triangles = []
+        for face_index, face in enumerate(faces):
+            base = len(verts)
+            fc = facecolors[face_index % len(facecolors)]
+            for vertex in face:
+                verts.append(vertex)
+                vertexcolor.append(fc)
+            triangles.append((base, base + 1, base + 2))
+            triangles.append((base, base + 2, base + 3))
+
+        scene = self.plotly_fig["layout"][self.current_3d_subplot]
+        self.plotly_fig.add_trace(
+            go.Mesh3d(
+                x=[v[0] for v in verts],
+                y=[v[1] for v in verts],
+                z=[v[2] for v in verts],
+                i=[t[0] for t in triangles],
+                j=[t[1] for t in triangles],
+                k=[t[2] for t in triangles],
+                vertexcolor=vertexcolor,
+                flatshading=True,
+                lighting=go.mesh3d.Lighting(ambient=1.0, diffuse=0.0, specular=0.0),
+                scene=self.current_3d_subplot,
+            )
+        )
+
+        ec = mplobj.get_edgecolors()
+        if len(ec) > 0 and ec[0][3] > 0:
+            edge_x, edge_y, edge_z = [], [], []
+            for face in faces:
+                for v0, v1 in [
+                    (face[0], face[1]),
+                    (face[1], face[2]),
+                    (face[2], face[3]),
+                    (face[3], face[0]),
+                ]:
+                    edge_x.extend([v0[0], v1[0], None])
+                    edge_y.extend([v0[1], v1[1], None])
+                    edge_z.extend([v0[2], v1[2], None])
+            self.plotly_fig.add_trace(
+                go.Scatter3d(
+                    x=edge_x,
+                    y=edge_y,
+                    z=edge_z,
+                    mode="lines",
+                    line=dict(color=_export_color(ec[0]), width=1.0),
+                    scene=self.current_3d_subplot,
+                )
+            )
+
+        stacked = np.array(verts)
+        for idx, axis_name in enumerate(["x", "y", "z"]):
+            ax_obj = getattr(scene, f"{axis_name}axis", None)
+            if ax_obj and ax_obj.range:
+                vmin = float(min(ax_obj.range[0], stacked[:, idx].min()))
+                vmax = float(max(ax_obj.range[1], stacked[:, idx].max()))
+                ax_obj.range = [vmin, vmax]
+
+        self.msg += "    Heck yeah, I drew that voxel 3d collection\n"
         return True
 
     def _draw_3d_markers(self, props):

@@ -1594,3 +1594,21 @@ def test_tricontourf3d_converts():
     traces = plotly_fig.data
     assert len(traces) > 0
     assert all(t.type == "mesh3d" for t in traces)
+
+
+def test_voxels_converts():
+    """3D voxels plots convert to mesh3d traces."""
+    np.random.seed(0)
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")
+    ax.voxels(np.random.rand(3, 3, 3) > 0.5)
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    traces = plotly_fig.data
+    assert len(traces) > 0
+    assert all(t.type == "mesh3d" for t in traces)
+    for t in traces:
+        assert len(t.x) == len(t.y) == len(t.z)
+        assert len(t.i) == len(t.j) == len(t.k)
+        assert len(t.i) > 0
