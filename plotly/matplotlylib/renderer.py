@@ -460,7 +460,6 @@ class PlotlyRenderer(Renderer):
             orientation=orientation,
             x=x,
             y=y,
-            width=bar_width,
             xaxis="x{0}".format(self.axis_ct),
             yaxis="y{0}".format(self.axis_ct),
             opacity=trace[0]["alpha"],  # TODO: get all alphas if array?
@@ -469,6 +468,10 @@ class PlotlyRenderer(Renderer):
                 line=dict(width=trace[0]["edgewidth"]),
             ),
         )
+        # grouped bars need their exact mpl widths so bars of the same
+        # index touch; other bars keep plotly's automatic sizing
+        if is_grouped:
+            bar_kwargs["width"] = bar_width
         if name:
             bar_kwargs["name"] = name
         if (
