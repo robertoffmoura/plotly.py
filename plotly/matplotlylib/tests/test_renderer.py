@@ -455,6 +455,29 @@ def test_grouped_bar_hover_shows_positions():
         assert all(abs(c - p) < 1e-6 for c, p in zip(trace.customdata, [10, 20, 30]))
 
 
+def test_mixed_grouped_and_disjoint_bars_hover_position():
+    """Grouped bars mixed with disjoint bars only average centers of overlapping containers."""
+    fig, ax = plt.subplots()
+    # Grouped bars centered around 0 and 1
+    ax.bar([-0.2, 0.8], [1, 2], width=0.4, label="g1")
+    ax.bar([0.2, 1.2], [3, 4], width=0.4, label="g2")
+    # Disjoint bar at 10 and 11
+    ax.bar([10, 11], [5, 6], width=0.4, label="other")
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert len(plotly_fig.data) == 3
+    assert plotly_fig.data[0].customdata is not None
+    assert plotly_fig.data[1].customdata is not None
+    assert all(
+        abs(c - p) < 1e-6 for c, p in zip(plotly_fig.data[0].customdata, [0.0, 1.0])
+    )
+    assert all(
+        abs(c - p) < 1e-6 for c, p in zip(plotly_fig.data[1].customdata, [0.0, 1.0])
+    )
+    assert plotly_fig.data[2].customdata is None
+
+
 def test_custom_date_xtickvals_given_as_numbers_are_converted():
     """Custom date ticks given as matplotlib date numbers must be converted
     to date strings."""
