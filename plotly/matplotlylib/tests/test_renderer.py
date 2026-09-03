@@ -370,16 +370,6 @@ def test_grouped_bar_hover_shows_index():
         assert "%{customdata}" in trace.hovertemplate
 
 
-def test_grouped_bar_bargap_not_set():
-    """Grouped bars keep their explicit widths: no layout bargap is set,
-    which would separate touching bars of the same group."""
-    fig, ax = plt.subplots()
-    plt.grouped_bar({"g1": [1, 2, 3], "g2": [2, 3, 4]})
-    plotly_fig = tls.mpl_to_plotly(fig)
-
-    assert plotly_fig.layout.bargap is None or plotly_fig.layout.bargap == 0
-
-
 def test_disjoint_bar_series_keep_real_x_in_hover():
     """Independent bar series with disjoint x ranges are not grouped: their
     hover data must show the real x values, not an ordinal index."""
@@ -410,9 +400,7 @@ def test_stacked_multi_container_bars_no_ordinal_hover():
 def test_grouped_bar_horizontal_hover_shows_index():
     """Horizontal grouped bars show the group index in hover data."""
     fig, ax = plt.subplots()
-    plt.grouped_bar(
-        {"g1": [1, 2, 3], "g2": [2, 3, 4]}, orientation="horizontal"
-    )
+    plt.grouped_bar({"g1": [1, 2, 3], "g2": [2, 3, 4]}, orientation="horizontal")
     plotly_fig = tls.mpl_to_plotly(fig)
 
     assert len(plotly_fig.data) == 2

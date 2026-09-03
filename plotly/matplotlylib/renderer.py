@@ -261,8 +261,38 @@ class PlotlyRenderer(Renderer):
                     ],
                 )
             )
-        is_grouped = len(self.bar_containers) > 1
-        for container, trace in mpl_traces:
+        # stacked containers: bars that do not start at the axis (y0 for
+        # vertical bars, x0 for horizontal ones)
+        stacked = False
+        for _, trace in mpl_traces:
+            trace_bars = [mpltools.make_bar(**bar_props) for bar_props in trace]
+            widths = [b["x1"] - b["x0"] for b in trace_bars]
+            if len(set(round(w, 10) for w in widths)) == 1:
+                stacked = any(b["y0"] != 0 for b in trace_bars)
+            else:
+                stacked = any(b["x0"] != 0 for b in trace_bars)
+            if stacked:
+                self.plotly_fig["layout"]["barmode"] = "stack"
+                break
+        # a container is grouped only when its bars touch or overlap those
+        # of another container along the category axis
+        spans = []
+        for _, trace in mpl_traces:
+            trace_bars = [mpltools.make_bar(**bar_props) for bar_props in trace]
+            widths = [bar["x1"] - bar["x0"] for bar in trace_bars]
+            heights = [bar["y1"] - bar["y0"] for bar in trace_bars]
+            if len(set(round(w, 10) for w in widths)) == 1:
+                spans.append([(bar["x0"], bar["x1"]) for bar in trace_bars])
+            else:
+                spans.append([(bar["y0"], bar["y1"]) for bar in trace_bars])
+        for i, (container, trace) in enumerate(mpl_traces):
+            is_grouped = False
+            for j, other in enumerate(spans):
+                if i != j and any(
+                    a0 <= b1 and b0 <= a1 for (a0, a1) in spans[i] for (b0, b1) in other
+                ):
+                    is_grouped = True
+                    break
             label = container.get_label()
             name = label if label and not label.startswith("_") else None
             self.draw_bar(trace, name=name, is_grouped=is_grouped)
@@ -350,10 +380,10 @@ class PlotlyRenderer(Renderer):
         )
         if name:
             bar_kwargs["name"] = name
-        grouped = is_grouped or (
-            self.bar_containers is not None and len(self.bar_containers) > 1
-        )
-        if grouped and getattr(self.plotly_fig["layout"], "barmode", None) != "stack":
+        if (
+            is_grouped
+            and getattr(self.plotly_fig["layout"], "barmode", None) != "stack"
+        ):
             customdata = list(range(len(trace)))
             bar_kwargs["customdata"] = customdata
             if orientation == "v":
