@@ -19,7 +19,6 @@ Usage::
 import base64
 import html
 import io
-import json
 import traceback
 import warnings
 import webbrowser
@@ -574,7 +573,13 @@ def _process_entry(name, code, min_mpl_version=None):
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 plotly_fig = tls.mpl_to_plotly(fig)
-            entry["plotlyJSON"] = json.loads(plotly_fig.to_json())
+            # Drop the explicit pixel size from the conversion so the figure
+            # follows its container (capped at the panel max-width) and
+            # shrinks with the window like the native PNG does
+            plotly_fig.layout.width = None
+            plotly_fig.layout.height = None
+            plotly_fig.layout.autosize = True
+            entry["plotlyJSON"] = plotly_fig.to_json()
             entry["plotlyOK"] = True
         except Exception as exc:  # noqa: BLE001
             entry["plotlyError"] = (
@@ -698,18 +703,10 @@ def _html_entry(entry, index):
     if entry["plotlyOK"]:
         div_id = f"plotly-{index}"
         parts.append(f'<div id="{div_id}" class="plotlybox"></div>\n')
-        data = json.dumps(entry["plotlyJSON"]["data"])
-        # drop the explicit pixel size from the conversion so the figure
-        # follows its container (capped at the panel max-width) and
-        # shrinks with the window like the native PNG does
-        layout = dict(entry["plotlyJSON"]["layout"])
-        layout.pop("width", None)
-        layout.pop("height", None)
-        layout["autosize"] = True
-        layout = json.dumps(layout)
         parts.append(
             f'<script type="text/javascript">\n'
-            f'Plotly.newPlot("{div_id}", {data}, {layout}, {{"responsive": true}});\n'
+            f"var fig_{index} = {entry['plotlyJSON']};\n"
+            f'Plotly.newPlot("{div_id}", fig_{index}.data, fig_{index}.layout, {{"responsive": true}});\n'
             f"</script>\n"
         )
     else:
