@@ -1108,11 +1108,12 @@ class PlotlyRenderer(Renderer):
             props["mplobj"], mcollections.PolyCollection
         ):
             if not self._draw_bar3d(props):
-                self.msg += "    3d path collection is not bar3d boxes, not drawing\n"
-                warnings.warn(
-                    "3d path collections other than bar3d are not "
-                    "supported yet. Not drawing."
-                )
+                if not self._draw_trisurf3d(props):
+                    self.msg += "    3d path collection is not bar3d boxes or trisurf, not drawing\n"
+                    warnings.warn(
+                        "3d path collections other than bar3d and trisurf are not "
+                        "supported yet. Not drawing."
+                    )
         elif (
             isinstance(props["mplobj"], mcollections.PolyCollection)
             and len(props["paths"]) == 1
@@ -1455,6 +1456,90 @@ class PlotlyRenderer(Renderer):
             )
         )
         self.msg += "    Heck yeah, I drew that 3d bar chart\n"
+        return True
+
+    def _draw_trisurf3d(self, props):
+        """Draw a 3D triangular surface (e.g. plot_trisurf) as a mesh3d trace."""
+        mplobj = props["mplobj"]
+        faces = getattr(mplobj, "_faces", None)
+        if faces is None or len(faces) == 0 or faces.shape[1] != 3:
+            return False
+
+        T = len(faces)
+        verts = faces.reshape(-1, 3)
+        i = np.arange(0, 3 * T, 3)
+        j = np.arange(1, 3 * T, 3)
+        k = np.arange(2, 3 * T, 3)
+
+        fc = mplobj.get_facecolors()
+        if len(fc) == 0:
+            color = "blue"
+            facecolor_strs = None
+        elif len(fc) == 1:
+            color = _export_color(fc[0])
+            facecolor_strs = None
+        else:
+            color = None
+            facecolor_strs = [_export_color(fc[idx % len(fc)]) for idx in range(T)]
+
+        mesh_kwargs = {
+            "x": verts[:, 0],
+            "y": verts[:, 1],
+            "z": verts[:, 2],
+            "i": i,
+            "j": j,
+            "k": k,
+            "flatshading": True,
+            "lighting": dict(
+                ambient=1.0,
+                diffuse=0.0,
+                specular=0.0,
+                roughness=1.0,
+                fresnel=0.0,
+            ),
+            "scene": self.current_3d_subplot,
+        }
+        if facecolor_strs is not None:
+            mesh_kwargs["facecolor"] = facecolor_strs
+        else:
+            mesh_kwargs["color"] = color
+
+        self.plotly_fig.add_trace(go.Mesh3d(**mesh_kwargs))
+
+        # Handle edgecolors if explicitly specified
+        ec = mplobj.get_edgecolors()
+        if len(ec) > 0 and ec[0][3] > 0:
+            edge_x, edge_y, edge_z = [], [], []
+            for face in faces:
+                for v0, v1 in [
+                    (face[0], face[1]),
+                    (face[1], face[2]),
+                    (face[2], face[0]),
+                ]:
+                    edge_x.extend([v0[0], v1[0], None])
+                    edge_y.extend([v0[1], v1[1], None])
+                    edge_z.extend([v0[2], v1[2], None])
+            self.plotly_fig.add_trace(
+                go.Scatter3d(
+                    x=edge_x,
+                    y=edge_y,
+                    z=edge_z,
+                    mode="lines",
+                    line=dict(color=_export_color(ec[0]), width=1.0),
+                    scene=self.current_3d_subplot,
+                )
+            )
+
+        # Expand axis ranges if needed
+        scene = self.plotly_fig["layout"][self.current_3d_subplot]
+        for idx, axis_name in enumerate(["x", "y", "z"]):
+            ax_obj = getattr(scene, f"{axis_name}axis", None)
+            if ax_obj and ax_obj.range:
+                vmin = float(min(ax_obj.range[0], verts[:, idx].min()))
+                vmax = float(max(ax_obj.range[1], verts[:, idx].max()))
+                ax_obj.range = [vmin, vmax]
+
+        self.msg += "    Heck yeah, I drew that 3d trisurf\n"
         return True
 
     def _draw_3d_markers(self, props):

@@ -1475,3 +1475,40 @@ def test_wireframe_converts():
     assert None in traces[0].y
     assert None in traces[0].z
     assert len(traces[0].x) > 0
+
+
+def test_trisurf3d_converts():
+    """3D triangular surface plots convert to mesh3d traces."""
+    np.random.seed(42)
+    x = np.random.rand(30)
+    y = np.random.rand(30)
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")
+    surf = ax.plot_trisurf(x, y, x + y, color="cyan")
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    traces = plotly_fig.data
+    assert len(traces) == 1
+    assert traces[0].type == "mesh3d"
+    assert len(traces[0].x) == len(traces[0].y) == len(traces[0].z)
+    assert len(traces[0].i) == len(traces[0].j) == len(traces[0].k)
+    assert len(traces[0].i) > 0
+
+
+def test_trisurf3d_cmap_converts():
+    """3D triangular surfaces with colormaps export per-face colors."""
+    np.random.seed(42)
+    x = np.random.rand(20)
+    y = np.random.rand(20)
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")
+    surf = ax.plot_trisurf(x, y, x + y, cmap="viridis")
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    traces = plotly_fig.data
+    assert len(traces) == 1
+    assert traces[0].type == "mesh3d"
+    assert traces[0].facecolor is not None
+    assert len(traces[0].facecolor) == len(traces[0].i)
