@@ -389,6 +389,18 @@ GALLERY_ENTRIES = [
         + "ax.bar([0, 1, 2], [1, 1, 1], bottom=[1, 2, 3], label='top')",
     ),
     (
+        "grouped_bar_positions",
+        "plt.grouped_bar({'g1': [1, 2, 3], 'g2': [2, 3, 4]}, positions=[10, 20, 30])",
+        "3.11",
+    ),
+    (
+        "disjoint_bars_review",
+        "ax = plt.gca()\n"
+        + "ax.bar([-0.2, 0.8], [1, 2], width=0.4, label='g1')\n"
+        + "ax.bar([0.2, 1.2], [3, 4], width=0.4, label='g2')\n"
+        + "ax.bar([10, 11], [5, 6], width=0.4, label='other')",
+    ),
+    (
         "pie_label",
         "c = plt.pie([3, 5, 2, 4])\n" + "plt.pie_label(c, ['a', 'b', 'c', 'd'])",
         "3.11",
