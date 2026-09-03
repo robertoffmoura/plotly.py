@@ -300,42 +300,17 @@ class PlotlyRenderer(Renderer):
                 self.plotly_fig["layout"]["barmode"] = "stack"
                 self.plotly_fig["layout"]["hovermode"] = hovermode
                 break
-        # a container is grouped only when its bars touch or overlap those
-        # of another container along the category axis
-        spans = []
-        for _, trace_bars in prepared:
-            orientation = _bar_orientation(trace_bars)
-            if orientation == "v":
-                spans.append([(b["x0"], b["x1"]) for b in trace_bars])
-            else:
-                spans.append([(b["y0"], b["y1"]) for b in trace_bars])
-        for i, (container, trace) in enumerate(mpl_traces):
-            overlapping = [
-                j
-                for j, other in enumerate(spans)
-                if i == j
-                or any(
-                    a0 <= b1 and b0 <= a1 for (a0, a1) in spans[i] for (b0, b1) in other
-                )
-            ]
-            is_grouped = len(overlapping) > 1
-            # the hover category of the k-th bar is the mean of its center
-            # across the overlapping containers (the shared group position)
-            customdata = None
+        for container, trace in mpl_traces:
+            group_positions = getattr(container, "group_positions", None)
+            is_grouped = group_positions is not None
             if is_grouped:
-                orientation = _bar_orientation(prepared[i][1])
-                customdata = []
-                for k in range(len(trace)):
-                    centers = []
-                    for j in overlapping:
-                        other_bars = prepared[j][1]
-                        if k < len(other_bars):
-                            bar = other_bars[k]
-                            if orientation == "v":
-                                centers.append((bar["x0"] + bar["x1"]) / 2)
-                            else:
-                                centers.append((bar["y0"] + bar["y1"]) / 2)
-                    customdata.append(round(sum(centers) / len(centers), 9))
+                customdata = (
+                    group_positions.tolist()
+                    if hasattr(group_positions, "tolist")
+                    else list(group_positions)
+                )
+            else:
+                customdata = None
             label = container.get_label()
             name = label if label and not label.startswith("_") else None
             self.draw_bar(
