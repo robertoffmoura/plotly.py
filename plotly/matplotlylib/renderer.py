@@ -252,16 +252,22 @@ class PlotlyRenderer(Renderer):
         mpl_traces = []
         for container in self.bar_containers:
             mpl_traces.append(
-                [
-                    bar_props
-                    for bar_props in self.current_bars
-                    if bar_props["mplobj"] in container
-                ]
+                (
+                    container,
+                    [
+                        bar_props
+                        for bar_props in self.current_bars
+                        if bar_props["mplobj"] in container
+                    ],
+                )
             )
-        for trace in mpl_traces:
-            self.draw_bar(trace)
+        is_grouped = len(self.bar_containers) > 1
+        for container, trace in mpl_traces:
+            label = container.get_label()
+            name = label if label and not label.startswith("_") else None
+            self.draw_bar(trace, name=name, is_grouped=is_grouped)
 
-    def draw_bar(self, coll):
+    def draw_bar(self, coll, name=None, is_grouped=False):
         """Draw a collection of similar patches as a bar chart.
 
         After bars are sorted, an appropriate data dictionary must be created
@@ -329,7 +335,7 @@ class PlotlyRenderer(Renderer):
                 [bar["y0"] for bar in trace], [bar["y1"] for bar in trace]
             )
         bar_width = widths if orientation == "v" else heights
-        bar = go.Bar(
+        bar_kwargs = dict(
             orientation=orientation,
             x=x,
             y=y,
@@ -341,7 +347,24 @@ class PlotlyRenderer(Renderer):
                 color=trace[0]["facecolor"],  # TODO: get all
                 line=dict(width=trace[0]["edgewidth"]),
             ),
-        )  # TODO ditto
+        )
+        if name:
+            bar_kwargs["name"] = name
+        grouped = is_grouped or (
+            self.bar_containers is not None and len(self.bar_containers) > 1
+        )
+        if grouped and getattr(self.plotly_fig["layout"], "barmode", None) != "stack":
+            customdata = list(range(len(trace)))
+            bar_kwargs["customdata"] = customdata
+            if orientation == "v":
+                bar_kwargs["hovertemplate"] = (
+                    "(%{customdata}, %{y})<extra>%{fullData.name}</extra>"
+                )
+            else:
+                bar_kwargs["hovertemplate"] = (
+                    "(%{x}, %{customdata})<extra>%{fullData.name}</extra>"
+                )
+        bar = go.Bar(**bar_kwargs)
         if len(bar["x"]) > 1:
             self.msg += "    Heck yeah, I drew that bar chart\n"
             self.plotly_fig.add_trace(bar)
