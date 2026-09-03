@@ -1823,8 +1823,9 @@ class PlotlyRenderer(Renderer):
         def flush():
             if current_style is not None and grouped_x:
                 ec, lw, d = current_style
-                self.plotly_fig.add_trace(
-                    go.Scatter(
+                traces.append(
+                    dict(
+                        type="scatter",
                         x=grouped_x,
                         y=grouped_y,
                         mode="lines",
@@ -1839,6 +1840,7 @@ class PlotlyRenderer(Renderer):
                     )
                 )
 
+        traces = []
         for i, (verts, codes) in enumerate(props["paths"]):
             # a path may contain several disjoint lines (e.g. contour lines
             # of the same level); separate disjoint subpaths with None so
@@ -1901,6 +1903,8 @@ class PlotlyRenderer(Renderer):
                 grouped_y.extend(path_y)
 
         flush()
+        if traces:
+            self.plotly_fig.add_traces(traces)
 
     def _draw_polar_line_collection(self, props):
         """Draw line collection segments (e.g. polar error bars) as lines."""
@@ -1977,6 +1981,7 @@ class PlotlyRenderer(Renderer):
         )
         flat_z = np.asarray(z_array).ravel() if z_array is not None else None
 
+        traces = []
         for i, (verts, codes) in enumerate(props["paths"]):
             facecolor = _per_path(facecolors, i, "rgba(0,0,0,0)")
             edgecolor = _per_path(edgecolors, i, "rgba(0,0,0,0)")
@@ -2038,12 +2043,11 @@ class PlotlyRenderer(Renderer):
 
             if self.current_is_polar:
                 polar_kwargs = dict(
+                    type="scatterpolar",
                     theta=[np.degrees(x) if x is not None else None for x in xs],
                     r=ys,
                     mode="lines",
-                    line=go.scatterpolar.Line(
-                        color=_export_color(edgecolor), width=linewidth
-                    ),
+                    line=dict(color=_export_color(edgecolor), width=linewidth),
                     fill="toself",
                     fillcolor=_export_color(facecolor),
                     subplot=self.current_polar_subplot,
@@ -2051,14 +2055,15 @@ class PlotlyRenderer(Renderer):
                 if trace_text is not None:
                     polar_kwargs["text"] = trace_text
                     polar_kwargs["hoverinfo"] = "text"
-                self.plotly_fig.add_trace(go.Scatterpolar(**polar_kwargs))
+                traces.append(polar_kwargs)
                 continue
 
             scatter_kwargs = dict(
+                type="scatter",
                 x=self._convert_x_dates(xs),
                 y=ys,
                 mode="lines",
-                line=go.scatter.Line(color=_export_color(edgecolor), width=linewidth),
+                line=dict(color=_export_color(edgecolor), width=linewidth),
                 fill="toself",
                 fillcolor=_export_color(facecolor),
                 xaxis="x{0}".format(self.axis_ct),
@@ -2067,7 +2072,10 @@ class PlotlyRenderer(Renderer):
             if trace_text is not None:
                 scatter_kwargs["text"] = trace_text
                 scatter_kwargs["hoverinfo"] = "text"
-            self.plotly_fig.add_trace(go.Scatter(**scatter_kwargs))
+            traces.append(scatter_kwargs)
+
+        if traces:
+            self.plotly_fig.add_traces(traces)
 
     def draw_path(self, **props):
         """Draw a bar chart path or a matplotlib step patch.
