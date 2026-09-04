@@ -6,7 +6,6 @@ relevant pieces to a renderer.
 """
 
 import warnings
-import io
 from . import utils
 
 import matplotlib
@@ -53,11 +52,14 @@ class Exporter(object):
         fig : matplotlib.Figure instance
             The figure to export
         """
-        # Calling savefig executes the draw() command, putting elements
-        # in the correct place.
+        # Ensure elements have layout transforms and dimensions calculated.
         if fig.canvas is None:
             FigureCanvasAgg(fig)
-        fig.savefig(io.BytesIO(), format="png", dpi=fig.dpi)
+        if fig.stale or getattr(fig.canvas, "renderer", None) is None:
+            if hasattr(fig, "draw_without_rendering"):
+                fig.draw_without_rendering()
+            else:
+                fig.canvas.draw()
         if self.close_mpl:
             import matplotlib.pyplot as plt
 
