@@ -19,6 +19,7 @@ Usage::
 import base64
 import html
 import io
+import time
 import traceback
 import warnings
 import webbrowser
@@ -750,6 +751,7 @@ def makegallery(
 
     target_specs = [entry for entry in GALLERY_ENTRIES if entry[0] in names]
     name_width = max(len(entry[0]) for entry in target_specs)
+    t_start = time.perf_counter()
     print(
         f"Generating plotly gallery with {len(target_specs)} entries "
         f"(using {workers or 'all'} worker processes) ...",
@@ -816,6 +818,7 @@ def makegallery(
         f"  {native_ok}/{total} native figure exports OK, "
         f"{plotly_ok}/{total} plotly conversions OK"
     )
+    print(f"  completed in {time.perf_counter() - t_start:.1f}s")
     webbrowser.open(Path(out_path).resolve().as_uri())
     return out_path
 
