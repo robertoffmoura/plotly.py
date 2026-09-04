@@ -749,6 +749,7 @@ def makegallery(
         names = set(functions)
 
     target_specs = [entry for entry in GALLERY_ENTRIES if entry[0] in names]
+    name_width = max(len(entry[0]) for entry in target_specs)
     print(
         f"Generating plotly gallery with {len(target_specs)} entries "
         f"(using {workers or 'all'} worker processes) ...",
@@ -766,7 +767,8 @@ def makegallery(
         for entry in results:
             entries.append(entry)
             status = (
-                f"  {entry['name']:<12} native: {'OK' if entry['nativeOK'] else 'FAIL':<4} "
+                f"  {entry['name']:<{name_width + 2}} "
+                f"native: {'OK' if entry['nativeOK'] else 'FAIL':<4} "
                 f"plotly: {'OK' if entry['plotlyOK'] else 'FAIL'}"
             )
             if not entry["nativeOK"] and entry["nativeError"]:
