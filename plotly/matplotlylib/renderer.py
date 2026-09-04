@@ -947,39 +947,41 @@ class PlotlyRenderer(Renderer):
                     x = [xy_pair[0] for xy_pair in props["data"]]
                     y = [xy_pair[1] for xy_pair in props["data"]]
                     z = [0] * len(x)
-                self.plotly_fig.add_trace(
-                    go.Scatter3d(
-                        mode=mode,
-                        name=label,
-                        x=list(x),
-                        y=list(y),
-                        z=list(z),
-                        scene=self.current_3d_subplot,
-                        line=(
-                            go.scatter3d.Line(
-                                color=line.color,
-                                width=line.width,
-                                dash=line.dash,
-                            )
-                            if props["linestyle"]
-                            else None
-                        ),
-                        marker=(
-                            go.scatter3d.Marker(
-                                opacity=marker.opacity,
-                                color=marker.color,
-                                symbol=marker.symbol,
-                                size=marker.size,
-                                line=dict(
-                                    color=marker.line.color,
-                                    width=marker.line.width,
-                                ),
-                            )
-                            if props["markerstyle"]
-                            else None
+                line_dict = (
+                    dict(
+                        color=line.color,
+                        width=line.width,
+                        dash=line.dash,
+                    )
+                    if props["linestyle"]
+                    else None
+                )
+                marker_dict = (
+                    dict(
+                        opacity=marker.opacity,
+                        color=marker.color,
+                        symbol=marker.symbol,
+                        size=marker.size,
+                        line=dict(
+                            color=marker.line.color,
+                            width=marker.line.width,
                         ),
                     )
+                    if props["markerstyle"]
+                    else None
                 )
+                trace = dict(
+                    type="scatter3d",
+                    mode=mode,
+                    name=label,
+                    x=list(x),
+                    y=list(y),
+                    z=list(z),
+                    scene=self.current_3d_subplot,
+                    line=line_dict,
+                    marker=marker_dict,
+                )
+                self.plotly_fig.add_traces([trace])
                 self.msg += "    Heck yeah, I drew that line on 3d axes\n"
                 return
             marked_line = go.Scatter(
@@ -1320,6 +1322,7 @@ class PlotlyRenderer(Renderer):
             return
         scene = self.plotly_fig["layout"][self.current_3d_subplot]
         all_verts = []
+        traces = []
         for i, (verts, codes) in enumerate(cs._3dverts_codes):
             if len(verts) == 0:
                 continue
@@ -1337,16 +1340,19 @@ class PlotlyRenderer(Renderer):
                 z.append(vz)
             level = cs._levels[i]
             color = self._contour_level_color(cs, level, index=i)
-            self.plotly_fig.add_trace(
-                go.Scatter3d(
+            traces.append(
+                dict(
+                    type="scatter3d",
                     mode="lines",
                     x=x,
                     y=y,
                     z=z,
                     scene=self.current_3d_subplot,
-                    line=go.scatter3d.Line(color=color),
+                    line=dict(color=color),
                 )
             )
+        if traces:
+            self.plotly_fig.add_traces(traces)
         if all_verts:
             stacked = np.vstack(all_verts)
             for idx, axis_name in enumerate(["x", "y", "z"]):
@@ -1366,6 +1372,7 @@ class PlotlyRenderer(Renderer):
         scene = self.plotly_fig["layout"][self.current_3d_subplot]
 
         all_verts = []
+        traces = []
         for i, (verts, codes) in enumerate(cs._3dverts_codes):
             if len(verts) == 0:
                 continue
@@ -1383,27 +1390,39 @@ class PlotlyRenderer(Renderer):
                 sub = pts_2d[s:e]
                 if len(sub) < 3:
                     continue
-                area = 0.5 * np.sum(sub[:-1, 0] * sub[1:, 1] - sub[1:, 0] * sub[:-1, 1])
-                path_obj = mpath.Path(sub)
+                # Shoelace formula to check orientation: positive = counter-clockwise (outer)
+                area = 0.5 * np.sum(
+                    sub[:, 0] * np.roll(sub[:, 1], -1)
+                    - sub[:, 1] * np.roll(sub[:, 0], -1)
+                )
                 if area > 0:
-                    outers.append(path_obj)
+                    outers.append(sub)
                 else:
-                    holes.append(path_obj)
-
-            unique_pts_2d, unique_indices = np.unique(pts_2d, axis=0, return_index=True)
-            if len(unique_pts_2d) < 3 or not outers:
-                continue
+                    holes.append(sub)
 
             try:
-                tri = mtri.Triangulation(unique_pts_2d[:, 0], unique_pts_2d[:, 1])
-                tris = tri.triangles
-                centroids = unique_pts_2d[tris].mean(axis=1)
+                unique_2d, unique_indices = np.unique(pts_2d, axis=0, return_index=True)
+                if len(unique_2d) < 3:
+                    continue
+                triang = mtri.Triangulation(unique_2d[:, 0], unique_2d[:, 1])
+                tris = triang.triangles
+                centroids = unique_2d[tris].mean(axis=1)
 
-                in_outer = np.any(
-                    [o.contains_points(centroids) for o in outers], axis=0
+                import matplotlib.path as mpath
+
+                in_outer = (
+                    np.any(
+                        [mpath.Path(p).contains_points(centroids) for p in outers],
+                        axis=0,
+                    )
+                    if outers
+                    else np.ones(len(centroids), dtype=bool)
                 )
                 in_hole = (
-                    np.any([h.contains_points(centroids) for h in holes], axis=0)
+                    np.any(
+                        [mpath.Path(p).contains_points(centroids) for p in holes],
+                        axis=0,
+                    )
                     if holes
                     else np.zeros(len(centroids), dtype=bool)
                 )
@@ -1421,8 +1440,9 @@ class PlotlyRenderer(Renderer):
                 color = _export_color(fc)
                 alpha = float(fc[3]) if len(fc) > 3 else 1.0
 
-                self.plotly_fig.add_trace(
-                    go.Mesh3d(
+                traces.append(
+                    dict(
+                        type="mesh3d",
                         x=unique_verts_3d[:, 0],
                         y=unique_verts_3d[:, 1],
                         z=unique_verts_3d[:, 2],
@@ -1446,6 +1466,9 @@ class PlotlyRenderer(Renderer):
                 warnings.warn(
                     "Failed to triangulate contourf3d level {0}: {1}".format(i, e)
                 )
+
+        if traces:
+            self.plotly_fig.add_traces(traces)
 
         if all_verts:
             stacked = np.vstack(all_verts)
@@ -1488,17 +1511,20 @@ class PlotlyRenderer(Renderer):
             grp["y"].extend(seg[:, 1])
             grp["z"].extend(seg[:, 2])
 
-        for (color, lw), coords in groups.items():
-            self.plotly_fig.add_trace(
-                go.Scatter3d(
-                    x=coords["x"],
-                    y=coords["y"],
-                    z=coords["z"],
-                    mode="lines",
-                    line=dict(color=color, width=lw),
-                    scene=self.current_3d_subplot,
-                )
+        traces = [
+            dict(
+                type="scatter3d",
+                x=coords["x"],
+                y=coords["y"],
+                z=coords["z"],
+                mode="lines",
+                line=dict(color=color, width=lw),
+                scene=self.current_3d_subplot,
             )
+            for (color, lw), coords in groups.items()
+        ]
+        if traces:
+            self.plotly_fig.add_traces(traces)
 
         if valid_segs:
             stacked = np.vstack(valid_segs)
@@ -1557,22 +1583,22 @@ class PlotlyRenderer(Renderer):
                     vertexcolor.append(facecolors[start + face_index])
                 triangles.append((base, base + 1, base + 2))
                 triangles.append((base, base + 2, base + 3))
-        self.plotly_fig.add_trace(
-            go.Mesh3d(
-                x=[v[0] for v in verts],
-                y=[v[1] for v in verts],
-                z=[v[2] for v in verts],
-                i=[t[0] for t in triangles],
-                j=[t[1] for t in triangles],
-                k=[t[2] for t in triangles],
-                vertexcolor=vertexcolor,
-                flatshading=True,
-                # matplotlib shades the faces itself, so disable plotly's
-                # lighting to keep the colors as-is
-                lighting=go.mesh3d.Lighting(ambient=1.0, diffuse=0.0, specular=0.0),
-                scene=self.current_3d_subplot,
-            )
+        trace = dict(
+            type="mesh3d",
+            x=[v[0] for v in verts],
+            y=[v[1] for v in verts],
+            z=[v[2] for v in verts],
+            i=[t[0] for t in triangles],
+            j=[t[1] for t in triangles],
+            k=[t[2] for t in triangles],
+            vertexcolor=vertexcolor,
+            flatshading=True,
+            # matplotlib shades the faces itself, so disable plotly's
+            # lighting to keep the colors as-is
+            lighting=dict(ambient=1.0, diffuse=0.0, specular=0.0),
+            scene=self.current_3d_subplot,
         )
+        self.plotly_fig.add_traces([trace])
         self.msg += "    Heck yeah, I drew that 3d bar chart\n"
         return True
 
@@ -1610,6 +1636,7 @@ class PlotlyRenderer(Renderer):
             facecolor_strs = [_export_color(fc[idx % len(fc)]) for idx in range(T)]
 
         mesh_kwargs = {
+            "type": "mesh3d",
             "x": verts[:, 0],
             "y": verts[:, 1],
             "z": verts[:, 2],
@@ -1631,7 +1658,7 @@ class PlotlyRenderer(Renderer):
         else:
             mesh_kwargs["color"] = color
 
-        self.plotly_fig.add_trace(go.Mesh3d(**mesh_kwargs))
+        traces = [mesh_kwargs]
 
         # Handle edgecolors if explicitly specified
         ec = mplobj.get_edgecolors()
@@ -1646,8 +1673,9 @@ class PlotlyRenderer(Renderer):
                     edge_x.extend([v0[0], v1[0], None])
                     edge_y.extend([v0[1], v1[1], None])
                     edge_z.extend([v0[2], v1[2], None])
-            self.plotly_fig.add_trace(
-                go.Scatter3d(
+            traces.append(
+                dict(
+                    type="scatter3d",
                     x=edge_x,
                     y=edge_y,
                     z=edge_z,
@@ -1656,6 +1684,8 @@ class PlotlyRenderer(Renderer):
                     scene=self.current_3d_subplot,
                 )
             )
+
+        self.plotly_fig.add_traces(traces)
 
         # Expand axis ranges if needed
         scene = self.plotly_fig["layout"][self.current_3d_subplot]
@@ -1699,20 +1729,20 @@ class PlotlyRenderer(Renderer):
             triangles.append((base, base + 2, base + 3))
 
         scene = self.plotly_fig["layout"][self.current_3d_subplot]
-        self.plotly_fig.add_trace(
-            go.Mesh3d(
-                x=[v[0] for v in verts],
-                y=[v[1] for v in verts],
-                z=[v[2] for v in verts],
-                i=[t[0] for t in triangles],
-                j=[t[1] for t in triangles],
-                k=[t[2] for t in triangles],
-                vertexcolor=vertexcolor,
-                flatshading=True,
-                lighting=go.mesh3d.Lighting(ambient=1.0, diffuse=0.0, specular=0.0),
-                scene=self.current_3d_subplot,
-            )
+        mesh_trace = dict(
+            type="mesh3d",
+            x=[v[0] for v in verts],
+            y=[v[1] for v in verts],
+            z=[v[2] for v in verts],
+            i=[t[0] for t in triangles],
+            j=[t[1] for t in triangles],
+            k=[t[2] for t in triangles],
+            vertexcolor=vertexcolor,
+            flatshading=True,
+            lighting=dict(ambient=1.0, diffuse=0.0, specular=0.0),
+            scene=self.current_3d_subplot,
         )
+        traces = [mesh_trace]
 
         ec = mplobj.get_edgecolors()
         if len(ec) > 0 and ec[0][3] > 0:
@@ -1727,8 +1757,9 @@ class PlotlyRenderer(Renderer):
                     edge_x.extend([v0[0], v1[0], None])
                     edge_y.extend([v0[1], v1[1], None])
                     edge_z.extend([v0[2], v1[2], None])
-            self.plotly_fig.add_trace(
-                go.Scatter3d(
+            traces.append(
+                dict(
+                    type="scatter3d",
                     x=edge_x,
                     y=edge_y,
                     z=edge_z,
@@ -1737,6 +1768,8 @@ class PlotlyRenderer(Renderer):
                     scene=self.current_3d_subplot,
                 )
             )
+
+        self.plotly_fig.add_traces(traces)
 
         stacked = np.array(verts)
         for idx, axis_name in enumerate(["x", "y", "z"]):
@@ -1766,25 +1799,25 @@ class PlotlyRenderer(Renderer):
             edgecolor = edgecolor[0]
         edgewidth = markerstyle["edgewidth"]
         alpha = props["styles"]["alpha"]
-        self.plotly_fig.add_trace(
-            go.Scatter3d(
-                mode="markers",
-                x=list(xs),
-                y=list(ys),
-                z=list(zs),
-                scene=self.current_3d_subplot,
-                marker=go.scatter3d.Marker(
-                    opacity=alpha if alpha is not None else 1,
-                    color=color,
-                    symbol=mpltools.convert_symbol(markerstyle["marker"]),
-                    size=size,
-                    line=dict(
-                        color=edgecolor,
-                        width=edgewidth,
-                    ),
+        trace = dict(
+            type="scatter3d",
+            mode="markers",
+            x=list(xs),
+            y=list(ys),
+            z=list(zs),
+            scene=self.current_3d_subplot,
+            marker=dict(
+                opacity=alpha if alpha is not None else 1,
+                color=color,
+                symbol=mpltools.convert_symbol(markerstyle["marker"]),
+                size=size,
+                line=dict(
+                    color=edgecolor,
+                    width=edgewidth,
                 ),
-            )
+            ),
         )
+        self.plotly_fig.add_traces([trace])
         self.msg += "    Heck yeah, I drew that 3d scatter\n"
 
     def _draw_quiver(self, props):
