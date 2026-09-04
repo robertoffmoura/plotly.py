@@ -2230,3 +2230,42 @@ def test_curvilinear_pcolormesh_falls_back_to_polygon_traces():
     plotly_fig = tls.mpl_to_plotly(fig)
     assert len(plotly_fig.data) == 16
     assert all(t.type == "scatter" for t in plotly_fig.data)
+
+
+def test_conversion_does_not_call_savefig():
+    """mpl_to_plotly should not invoke savefig during export."""
+    from unittest.mock import patch
+
+    fig, ax = plt.subplots()
+    ax.plot([1, 2], [3, 4])
+
+    with patch.object(fig, "savefig", wraps=fig.savefig) as mock_savefig:
+        tls.mpl_to_plotly(fig)
+        assert mock_savefig.call_count == 0
+
+
+def test_conversion_reflects_post_draw_mutations():
+    """Mutating a figure after an initial draw updates exported properties."""
+    fig, ax = plt.subplots()
+    ax.plot([1, 2], [3, 4])
+    fig.canvas.draw()
+
+    ax.set_title("Updated Title")
+    ax.set_xlabel("New X Label")
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+    assert plotly_fig.layout.title.text == "Updated Title"
+    assert plotly_fig.layout.xaxis.title.text == "New X Label"
+
+
+def test_conversion_preserves_figure_state():
+    """Conversion does not alter figure dpi or size in inches."""
+    fig, ax = plt.subplots()
+    ax.plot([1, 2], [3, 4])
+    original_dpi = fig.dpi
+    original_size = tuple(fig.get_size_inches())
+
+    tls.mpl_to_plotly(fig)
+
+    assert fig.dpi == original_dpi
+    assert tuple(fig.get_size_inches()) == original_size
