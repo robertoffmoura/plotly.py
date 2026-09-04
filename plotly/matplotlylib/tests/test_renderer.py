@@ -2269,3 +2269,14 @@ def test_conversion_preserves_figure_state():
 
     assert fig.dpi == original_dpi
     assert tuple(fig.get_size_inches()) == original_size
+
+
+def test_buffered_layout_validation_error_reporting():
+    """Layout validation errors during conversion raise with informative message."""
+    from plotly.matplotlylib.renderer import PlotlyRenderer
+    import pytest
+
+    renderer = PlotlyRenderer()
+    renderer.layout["invalid_layout_key_12345"] = "bad_val"
+    with pytest.raises(ValueError, match="Failed to validate Plotly layout"):
+        renderer._finalize_layout()

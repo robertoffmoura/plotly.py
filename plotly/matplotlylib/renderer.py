@@ -73,6 +73,44 @@ def _has_blended_transform(transform):
     return False
 
 
+class LayoutDict(dict):
+    """Dictionary subclass supporting attribute-style property access and nested LayoutDict wrapping."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for k, v in list(self.items()):
+            if isinstance(v, dict) and not isinstance(v, LayoutDict):
+                self[k] = LayoutDict(v)
+
+    def __getitem__(self, name):
+        val = super().__getitem__(name)
+        if isinstance(val, dict) and not isinstance(val, LayoutDict):
+            val = LayoutDict(val)
+            super().__setitem__(name, val)
+        return val
+
+    def __getattr__(self, name):
+        try:
+            return self[name]
+        except KeyError as e:
+            raise AttributeError(name) from e
+
+    def __setattr__(self, name, value):
+        self[name] = value
+
+    def __delattr__(self, name):
+        try:
+            del self[name]
+        except KeyError as e:
+            raise AttributeError(name) from e
+
+    def get(self, key, default=None):
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+
 class PlotlyRenderer(Renderer):
     """A renderer class inheriting from base for rendering mpl plots in plotly.
 
@@ -101,7 +139,10 @@ class PlotlyRenderer(Renderer):
         All class attributes are listed here in the __init__ method.
 
         """
-        self.plotly_fig = go.Figure()
+        self._plotly_fig = go.Figure()
+        self.layout = LayoutDict()
+        self._is_crawling = False
+        self._layout_finalized = False
         self.mpl_fig = None
         self.current_mpl_ax = None
         self.bar_containers = None
@@ -121,6 +162,30 @@ class PlotlyRenderer(Renderer):
         self._processing_legend = False
         self._legend_visible = False
         self.axes_list = []
+
+    @property
+    def plotly_fig(self):
+        if not getattr(self, "_is_crawling", False):
+            self._finalize_layout()
+        return self._plotly_fig
+
+    @plotly_fig.setter
+    def plotly_fig(self, val):
+        self._plotly_fig = val
+
+    def _finalize_layout(self):
+        """Transfer the buffered layout dictionary to the Plotly figure with validation error handling."""
+        if getattr(self, "_layout_finalized", False) or not getattr(
+            self, "layout", None
+        ):
+            return
+        self._layout_finalized = True
+        try:
+            self._plotly_fig.update_layout(self.layout)
+        except ValueError as err:
+            raise ValueError(
+                f"Failed to validate Plotly layout generated from Matplotlib: {err}"
+            ) from err
 
     def _convert_x_dates(self, x):
         """Convert x values to date strings when the x-axis is a date axis."""
@@ -188,7 +253,7 @@ class PlotlyRenderer(Renderer):
             )
         )
         frame = ax.spines.get("polar")
-        self.plotly_fig["layout"][self.current_polar_subplot] = go.layout.Polar(
+        self.layout[self.current_polar_subplot] = LayoutDict(
             bgcolor=_export_color(props["axesbg"]),
             angularaxis=dict(
                 rotation=float(np.degrees(theta_offset)),
@@ -205,6 +270,11 @@ class PlotlyRenderer(Renderer):
                     else "black"
                 ),
                 linewidth=frame.get_linewidth() if frame is not None else 1,
+                ticks=(
+                    "inside"
+                    if ax.xaxis.get_tick_params().get("tickdir") == "in"
+                    else ""
+                ),
             ),
             radialaxis=dict(
                 range=[float(v) for v in ax.get_ylim()],
@@ -213,7 +283,18 @@ class PlotlyRenderer(Renderer):
                 tickfont=dict(color=radial_fontcolor),
                 showgrid=radial_grid[1],
                 gridcolor=_export_color(radial_grid[0]),
+                linecolor=(
+                    _export_color(frame.get_edgecolor())
+                    if frame is not None
+                    else "black"
+                ),
                 showline=False,
+                ticks=(
+                    "inside"
+                    if ax.yaxis.get_tick_params().get("tickdir") == "in"
+                    else ""
+                ),
+                angle=0,
             ),
         )
 
@@ -304,17 +385,16 @@ class PlotlyRenderer(Renderer):
                 y=float(aspect[1]),
                 z=float(aspect[2]),
             )
-        self.plotly_fig["layout"][self.current_3d_subplot] = go.layout.Scene(
-            **scene_kwargs
-        )
-        layout = self.plotly_fig["layout"]
-        if layout.template and hasattr(layout.template, "layout"):
-            tmpl_layout = layout.template.layout
+        self.layout[self.current_3d_subplot] = LayoutDict(**scene_kwargs)
+        if self._plotly_fig.layout.template and hasattr(
+            self._plotly_fig.layout.template, "layout"
+        ):
+            tmpl_layout = self._plotly_fig.layout.template.layout
             if hasattr(tmpl_layout, self.current_3d_subplot):
                 getattr(tmpl_layout, self.current_3d_subplot).camera = camera
             else:
                 tmpl_layout[self.current_3d_subplot] = dict(camera=camera)
-        self.plotly_fig["layout"].plot_bgcolor = _export_color(props["axesbg"])
+        self.layout.plot_bgcolor = _export_color(props["axesbg"])
 
     def open_figure(self, fig, props):
         """Creates a new figure by beginning to fill out layout dict.
@@ -334,7 +414,9 @@ class PlotlyRenderer(Renderer):
         """
         self.msg += "Opening figure\n"
         self.mpl_fig = fig
-        self.plotly_fig["layout"] = go.Layout(
+        self._is_crawling = True
+        self._layout_finalized = False
+        self.layout = LayoutDict(
             width=int(props["figwidth"] * props["dpi"]),
             height=int(props["figheight"] * props["dpi"]),
             autosize=False,
@@ -343,8 +425,8 @@ class PlotlyRenderer(Renderer):
             # in the legend; the legend is only enabled when the mpl figure
             # actually has one (see open_legend)
             showlegend=False,
+            paper_bgcolor=_export_color(props["figbg"]),
         )
-        self.plotly_fig["layout"].paper_bgcolor = _export_color(props["figbg"])
         self.mpl_x_bounds, self.mpl_y_bounds = mpltools.get_axes_bounds(fig)
         all_3d = fig.get_axes() and all(
             getattr(ax, "name", None) == "3d" for ax in fig.get_axes()
@@ -355,20 +437,20 @@ class PlotlyRenderer(Renderer):
                 for ax in fig.get_axes()
             ) or bool(fig.texts)
             top_margin = 40 if has_title else 0
-            margin = go.layout.Margin(l=0, r=0, t=top_margin, b=0, pad=0)
+            margin = LayoutDict(l=0, r=0, t=top_margin, b=0, pad=0)
         else:
-            margin = go.layout.Margin(
-                l=int(self.mpl_x_bounds[0] * self.plotly_fig["layout"]["width"]),
-                r=int((1 - self.mpl_x_bounds[1]) * self.plotly_fig["layout"]["width"]),
-                t=int((1 - self.mpl_y_bounds[1]) * self.plotly_fig["layout"]["height"]),
-                b=int(self.mpl_y_bounds[0] * self.plotly_fig["layout"]["height"]),
+            margin = LayoutDict(
+                l=int(self.mpl_x_bounds[0] * self.layout["width"]),
+                r=int((1 - self.mpl_x_bounds[1]) * self.layout["width"]),
+                t=int((1 - self.mpl_y_bounds[1]) * self.layout["height"]),
+                b=int(self.mpl_y_bounds[0] * self.layout["height"]),
                 pad=0,
             )
-        self.plotly_fig["layout"]["margin"] = margin
+        self.layout["margin"] = margin
         if not fig.get_axes():
-            self.plotly_fig["layout"].plot_bgcolor = _export_color(props["figbg"])
-            self.plotly_fig["layout"]["xaxis"] = dict(visible=False)
-            self.plotly_fig["layout"]["yaxis"] = dict(visible=False)
+            self.layout.plot_bgcolor = _export_color(props["figbg"])
+            self.layout["xaxis"] = dict(visible=False)
+            self.layout["yaxis"] = dict(visible=False)
 
     def close_figure(self, fig):
         """Closes figure by cleaning up data and layout dictionaries.
@@ -383,6 +465,8 @@ class PlotlyRenderer(Renderer):
         fig -- a matplotlib.figure.Figure object.
 
         """
+        self._is_crawling = False
+        self._finalize_layout()
         self.msg += "Closing figure\n"
 
     def open_axes(self, ax, props):
@@ -437,7 +521,7 @@ class PlotlyRenderer(Renderer):
             return
         self.axis_ct += 1
         if props.get("patch_visible", True):
-            self.plotly_fig["layout"].plot_bgcolor = _export_color(props["axesbg"])
+            self.layout.plot_bgcolor = _export_color(props["axesbg"])
         # set defaults in axes
         xaxis = go.layout.XAxis(
             anchor="y{0}".format(self.axis_ct), zeroline=False, ticks="inside"
@@ -518,8 +602,8 @@ class PlotlyRenderer(Renderer):
         self.axes_list.append((ax, self.axis_ct))
 
         # put axes in our figure
-        self.plotly_fig["layout"]["xaxis{0}".format(self.axis_ct)] = xaxis
-        self.plotly_fig["layout"]["yaxis{0}".format(self.axis_ct)] = yaxis
+        self.layout["xaxis{0}".format(self.axis_ct)] = xaxis
+        self.layout["yaxis{0}".format(self.axis_ct)] = yaxis
 
         # let all subsequent dates be handled properly if required
 
@@ -633,7 +717,7 @@ class PlotlyRenderer(Renderer):
             self.msg += (
                 "    Enabling native plotly legend (matplotlib legend is visible)\n"
             )
-            self.plotly_fig["layout"]["showlegend"] = True
+            self.layout["showlegend"] = True
         else:
             self.msg += "    Not enabling legend (matplotlib legend is not visible)\n"
 
@@ -725,8 +809,8 @@ class PlotlyRenderer(Renderer):
             # check if we're stacked or not...
             for old, new in zip(old_heights, new_heights):
                 if abs(old - new) > tol:
-                    self.plotly_fig["layout"]["barmode"] = "stack"
-                    self.plotly_fig["layout"]["hovermode"] = "x"
+                    self.layout["barmode"] = "stack"
+                    self.layout["hovermode"] = "x"
             x = [bar["x0"] + (bar["x1"] - bar["x0"]) / 2 for bar in trace]
             y = [bar["y1"] for bar in trace]
             bar_gap = mpltools.get_bar_gap(
@@ -743,8 +827,8 @@ class PlotlyRenderer(Renderer):
             # check if we're stacked or not...
             for old, new in zip(old_rights, new_rights):
                 if abs(old - new) > tol:
-                    self.plotly_fig["layout"]["barmode"] = "stack"
-                    self.plotly_fig["layout"]["hovermode"] = "y"
+                    self.layout["barmode"] = "stack"
+                    self.layout["hovermode"] = "y"
             x = [bar["x1"] for bar in trace]
             y = [bar["y0"] + (bar["y1"] - bar["y0"]) / 2 for bar in trace]
             bar_gap = mpltools.get_bar_gap(
@@ -769,7 +853,7 @@ class PlotlyRenderer(Renderer):
         grouped = is_grouped or (
             self.bar_containers is not None and len(self.bar_containers) > 1
         )
-        if grouped and getattr(self.plotly_fig["layout"], "barmode", None) != "stack":
+        if grouped and getattr(self.layout, "barmode", None) != "stack":
             customdata = list(range(len(trace)))
             bar_kwargs["customdata"] = customdata
             if orientation == "v":
@@ -785,7 +869,7 @@ class PlotlyRenderer(Renderer):
             self.msg += "    Heck yeah, I drew that bar chart\n"
             self.plotly_fig.add_trace(bar)
             if bar_gap is not None:
-                self.plotly_fig["layout"]["bargap"] = bar_gap
+                self.layout["bargap"] = bar_gap
         else:
             self.msg += "    Bar chart not drawn\n"
             warnings.warn(
@@ -1048,7 +1132,9 @@ class PlotlyRenderer(Renderer):
             ),
             layer="above",
         )
-        self.plotly_fig["layout"]["shapes"] += (shape,)
+        if "shapes" not in self.layout:
+            self.layout["shapes"] = []
+        self.layout["shapes"].append(shape)
         self.msg += "    Heck yeah, I drew that reference line\n"
 
     def _draw_axes_span(self, props):
@@ -1085,7 +1171,9 @@ class PlotlyRenderer(Renderer):
             ),
             layer="below" if style.get("zorder", 1) < 2 else "above",
         )
-        self.plotly_fig["layout"]["shapes"] += (shape,)
+        if "shapes" not in self.layout:
+            self.layout["shapes"] = []
+        self.layout["shapes"].append(shape)
         self.msg += "    Heck yeah, I drew that reference span\n"
 
     def draw_image(self, **props):
@@ -1100,13 +1188,21 @@ class PlotlyRenderer(Renderer):
         coords = props.get("coordinates", "data")
         if coords == "figure":
             mplobj = props["mplobj"]
-            fig_w = float(self.plotly_fig["layout"]["width"])
-            fig_h = float(self.plotly_fig["layout"]["height"])
-            margin = getattr(self.plotly_fig["layout"], "margin", None)
-            pad_l = float(margin.l if margin and margin.l is not None else 0)
-            pad_r = float(margin.r if margin and margin.r is not None else 0)
-            pad_t = float(margin.t if margin and margin.t is not None else 0)
-            pad_b = float(margin.b if margin and margin.b is not None else 0)
+            fig_w = float(self.layout["width"])
+            fig_h = float(self.layout["height"])
+            margin = getattr(self.layout, "margin", None)
+            pad_l = float(
+                margin.l if margin and getattr(margin, "l", None) is not None else 0
+            )
+            pad_r = float(
+                margin.r if margin and getattr(margin, "r", None) is not None else 0
+            )
+            pad_t = float(
+                margin.t if margin and getattr(margin, "t", None) is not None else 0
+            )
+            pad_b = float(
+                margin.b if margin and getattr(margin, "b", None) is not None else 0
+            )
             plot_w = max(fig_w - pad_l - pad_r, 1.0)
             plot_h = max(fig_h - pad_t - pad_b, 1.0)
 
@@ -1143,7 +1239,9 @@ class PlotlyRenderer(Renderer):
             opacity=style["alpha"] if style["alpha"] is not None else 1,
             layer="below",
         )
-        self.plotly_fig["layout"]["images"] += (img,)
+        if "images" not in self.layout:
+            self.layout["images"] = []
+        self.layout["images"].append(img)
         self.msg += "    Heck yeah, I drew that image\n"
 
     def draw_path_collection(self, **props):
@@ -1320,7 +1418,6 @@ class PlotlyRenderer(Renderer):
         if cs.filled:
             self._draw_contourf3d(props)
             return
-        scene = self.plotly_fig["layout"][self.current_3d_subplot]
         all_verts = []
         traces = []
         for i, (verts, codes) in enumerate(cs._3dverts_codes):
@@ -1355,12 +1452,15 @@ class PlotlyRenderer(Renderer):
             self.plotly_fig.add_traces(traces)
         if all_verts:
             stacked = np.vstack(all_verts)
-            for idx, axis_name in enumerate(["x", "y", "z"]):
-                ax_obj = getattr(scene, f"{axis_name}axis", None)
-                if ax_obj and ax_obj.range:
-                    vmin = float(min(ax_obj.range[0], stacked[:, idx].min()))
-                    vmax = float(max(ax_obj.range[1], stacked[:, idx].max()))
-                    ax_obj.range = [vmin, vmax]
+            scene = self.layout.get(self.current_3d_subplot)
+            if scene is not None:
+                for idx, axis_name in enumerate(["x", "y", "z"]):
+                    ax_obj = getattr(scene, f"{axis_name}axis", None)
+                    if ax_obj and getattr(ax_obj, "range", None):
+                        range_val = ax_obj.range
+                        vmin = float(min(range_val[0], stacked[:, idx].min()))
+                        vmax = float(max(range_val[1], stacked[:, idx].max()))
+                        ax_obj.range = [vmin, vmax]
         self.msg += "    Heck yeah, I drew that 3d contour set\n"
 
     def _draw_contourf3d(self, props):
@@ -1369,7 +1469,6 @@ class PlotlyRenderer(Renderer):
 
         cs = props["mplobj"]
         facecolors = getattr(cs, "get_facecolors", lambda: [])()
-        scene = self.plotly_fig["layout"][self.current_3d_subplot]
 
         all_verts = []
         traces = []
@@ -1472,12 +1571,15 @@ class PlotlyRenderer(Renderer):
 
         if all_verts:
             stacked = np.vstack(all_verts)
-            for idx, axis_name in enumerate(["x", "y", "z"]):
-                ax_obj = getattr(scene, f"{axis_name}axis", None)
-                if ax_obj and ax_obj.range:
-                    vmin = float(min(ax_obj.range[0], stacked[:, idx].min()))
-                    vmax = float(max(ax_obj.range[1], stacked[:, idx].max()))
-                    ax_obj.range = [vmin, vmax]
+            scene = self.layout.get(self.current_3d_subplot)
+            if scene is not None:
+                for idx, axis_name in enumerate(["x", "y", "z"]):
+                    ax_obj = getattr(scene, f"{axis_name}axis", None)
+                    if ax_obj and getattr(ax_obj, "range", None):
+                        range_val = ax_obj.range
+                        vmin = float(min(range_val[0], stacked[:, idx].min()))
+                        vmax = float(max(range_val[1], stacked[:, idx].max()))
+                        ax_obj.range = [vmin, vmax]
 
         self.msg += "    Heck yeah, I drew that 3d filled contour set\n"
 
@@ -1528,13 +1630,15 @@ class PlotlyRenderer(Renderer):
 
         if valid_segs:
             stacked = np.vstack(valid_segs)
-            scene = self.plotly_fig["layout"][self.current_3d_subplot]
-            for idx, axis_name in enumerate(["x", "y", "z"]):
-                ax_obj = getattr(scene, f"{axis_name}axis", None)
-                if ax_obj and ax_obj.range:
-                    vmin = float(min(ax_obj.range[0], stacked[:, idx].min()))
-                    vmax = float(max(ax_obj.range[1], stacked[:, idx].max()))
-                    ax_obj.range = [vmin, vmax]
+            scene = self.layout.get(self.current_3d_subplot)
+            if scene is not None:
+                for idx, axis_name in enumerate(["x", "y", "z"]):
+                    ax_obj = getattr(scene, f"{axis_name}axis", None)
+                    if ax_obj and getattr(ax_obj, "range", None):
+                        range_val = ax_obj.range
+                        vmin = float(min(range_val[0], stacked[:, idx].min()))
+                        vmax = float(max(range_val[1], stacked[:, idx].max()))
+                        ax_obj.range = [vmin, vmax]
 
         self.msg += "    Heck yeah, I drew that 3d line collection\n"
 
@@ -1692,13 +1796,15 @@ class PlotlyRenderer(Renderer):
         self.plotly_fig.add_traces(traces)
 
         # Expand axis ranges if needed
-        scene = self.plotly_fig["layout"][self.current_3d_subplot]
-        for idx, axis_name in enumerate(["x", "y", "z"]):
-            ax_obj = getattr(scene, f"{axis_name}axis", None)
-            if ax_obj and ax_obj.range:
-                vmin = float(min(ax_obj.range[0], verts[:, idx].min()))
-                vmax = float(max(ax_obj.range[1], verts[:, idx].max()))
-                ax_obj.range = [vmin, vmax]
+        scene = self.layout.get(self.current_3d_subplot)
+        if scene is not None:
+            for idx, axis_name in enumerate(["x", "y", "z"]):
+                ax_obj = getattr(scene, f"{axis_name}axis", None)
+                if ax_obj and getattr(ax_obj, "range", None):
+                    range_val = ax_obj.range
+                    vmin = float(min(range_val[0], verts[:, idx].min()))
+                    vmax = float(max(range_val[1], verts[:, idx].max()))
+                    ax_obj.range = [vmin, vmax]
 
         self.msg += "    Heck yeah, I drew that 3d trisurf\n"
         return True
@@ -1744,7 +1850,6 @@ class PlotlyRenderer(Renderer):
                 for _ in range(4)
             ]
 
-        scene = self.plotly_fig["layout"][self.current_3d_subplot]
         mesh_trace = dict(
             type="mesh3d",
             x=verts[:, 0],
@@ -1785,12 +1890,15 @@ class PlotlyRenderer(Renderer):
         self.plotly_fig.add_traces(traces)
 
         stacked = np.array(verts)
-        for idx, axis_name in enumerate(["x", "y", "z"]):
-            ax_obj = getattr(scene, f"{axis_name}axis", None)
-            if ax_obj and ax_obj.range:
-                vmin = float(min(ax_obj.range[0], stacked[:, idx].min()))
-                vmax = float(max(ax_obj.range[1], stacked[:, idx].max()))
-                ax_obj.range = [vmin, vmax]
+        scene = self.layout.get(self.current_3d_subplot)
+        if scene is not None:
+            for idx, axis_name in enumerate(["x", "y", "z"]):
+                ax_obj = getattr(scene, f"{axis_name}axis", None)
+                if ax_obj and getattr(ax_obj, "range", None):
+                    range_val = ax_obj.range
+                    vmin = float(min(range_val[0], stacked[:, idx].min()))
+                    vmax = float(max(range_val[1], stacked[:, idx].max()))
+                    ax_obj.range = [vmin, vmax]
 
         self.msg += "    Heck yeah, I drew that voxel 3d collection\n"
         return True
@@ -1882,7 +1990,9 @@ class PlotlyRenderer(Renderer):
                     opacity=alpha,
                 )
             )
-        self.plotly_fig["layout"]["annotations"] += tuple(annotations)
+        if "annotations" not in self.layout:
+            self.layout["annotations"] = []
+        self.layout["annotations"].extend(annotations)
         self.msg += "    Heck yeah, I drew that quiver\n"
 
     def _draw_line_collection(self, props):
@@ -2446,8 +2556,8 @@ class PlotlyRenderer(Renderer):
         align = props["mplobj"]._multialignment
         if not align:
             align = props["style"]["halign"]  # mpl default
-        if "annotations" not in self.plotly_fig["layout"]:
-            self.plotly_fig["layout"]["annotations"] = []
+        if "annotations" not in self.layout:
+            self.layout["annotations"] = []
         if props["text_type"] == "xlabel":
             self.msg += "      Text object is an xlabel\n"
             self.draw_xlabel(**props)
@@ -2477,7 +2587,7 @@ class PlotlyRenderer(Renderer):
                 x_px, y_px = (
                     props["mplobj"].get_transform().transform(props["position"])
                 )
-                x, y = mpltools.display_to_paper(x_px, y_px, self.plotly_fig["layout"])
+                x, y = mpltools.display_to_paper(x_px, y_px, self.layout)
                 xref = "paper"
                 yref = "paper"
                 xanchor = props["style"]["halign"]  # no difference here!
@@ -2491,7 +2601,7 @@ class PlotlyRenderer(Renderer):
                 else:
                     x, y = props["position"]
                     z = 0.0
-                scene = self.plotly_fig["layout"][self.current_3d_subplot]
+                scene = self.layout[self.current_3d_subplot]
                 font_color = _export_color(props["style"]["color"])
                 annotation = go.layout.scene.Annotation(
                     text=(
@@ -2511,12 +2621,15 @@ class PlotlyRenderer(Renderer):
                         size=props["style"]["fontsize"],
                     ),
                 )
-                scene.annotations += (annotation,)
+                if "annotations" not in scene:
+                    scene["annotations"] = []
+                scene["annotations"].append(annotation)
                 for axis_name, val in [("x", x), ("y", y), ("z", z)]:
                     ax_obj = getattr(scene, f"{axis_name}axis", None)
-                    if ax_obj and ax_obj.range:
-                        vmin = float(min(ax_obj.range[0], val))
-                        vmax = float(max(ax_obj.range[1], val))
+                    if ax_obj and getattr(ax_obj, "range", None):
+                        range_val = ax_obj.range
+                        vmin = float(min(range_val[0], val))
+                        vmax = float(max(range_val[1], val))
                         ax_obj.range = [vmin, vmax]
                 self.msg += "    Heck, yeah I drew that 3d annotation\n"
                 return
@@ -2532,14 +2645,12 @@ class PlotlyRenderer(Renderer):
                     x_px, y_px = (
                         props["mplobj"].get_transform().transform(props["position"])
                     )
-                    x, y = mpltools.display_to_paper(
-                        x_px, y_px, self.plotly_fig["layout"]
-                    )
+                    x, y = mpltools.display_to_paper(x_px, y_px, self.layout)
                     xref = "paper"
                     yref = "paper"
                 else:
-                    xaxis = self.plotly_fig["layout"]["xaxis{0}".format(axis_ct)]
-                    yaxis = self.plotly_fig["layout"]["yaxis{0}".format(axis_ct)]
+                    xaxis = self.layout["xaxis{0}".format(axis_ct)]
+                    yaxis = self.layout["yaxis{0}".format(axis_ct)]
                     if (
                         xaxis["range"][0] < x < xaxis["range"][1]
                         and yaxis["range"][0] < y < yaxis["range"][1]
@@ -2554,9 +2665,7 @@ class PlotlyRenderer(Renderer):
                         x_px, y_px = (
                             props["mplobj"].get_transform().transform(props["position"])
                         )
-                        x, y = mpltools.display_to_paper(
-                            x_px, y_px, self.plotly_fig["layout"]
-                        )
+                        x, y = mpltools.display_to_paper(x_px, y_px, self.layout)
                         xref = "paper"
                         yref = "paper"
                 xanchor = props["style"]["halign"]  # no difference here!
@@ -2581,7 +2690,9 @@ class PlotlyRenderer(Renderer):
                     size=props["style"]["fontsize"],
                 ),
             )
-            self.plotly_fig["layout"]["annotations"] += (annotation,)
+            if "annotations" not in self.layout:
+                self.layout["annotations"] = []
+            self.layout["annotations"].append(annotation)
             self.msg += "    Heck, yeah I drew that annotation\n"
 
     def draw_title(self, **props):
@@ -2614,7 +2725,7 @@ class PlotlyRenderer(Renderer):
         if len(self.mpl_fig.axes) > 1:
             self.msg += "          More than one subplot, adding title as annotation\n"
             x_px, y_px = props["mplobj"].get_transform().transform(props["position"])
-            x, y = mpltools.display_to_paper(x_px, y_px, self.plotly_fig["layout"])
+            x, y = mpltools.display_to_paper(x_px, y_px, self.layout)
             annotation = go.layout.Annotation(
                 text=props["text"],
                 font=go.layout.annotation.Font(
@@ -2629,15 +2740,17 @@ class PlotlyRenderer(Renderer):
                 yanchor="bottom",
                 showarrow=False,  # no arrow for a title!
             )
-            self.plotly_fig["layout"]["annotations"] += (annotation,)
+            if "annotations" not in self.layout:
+                self.layout["annotations"] = []
+            self.layout["annotations"].append(annotation)
         else:
             self.msg += "          Only one subplot found, adding as a plotly title\n"
-            self.plotly_fig["layout"]["title"] = props["text"]
+            self.layout["title"] = props["text"]
             title_font = dict(
                 size=props["style"]["fontsize"],
                 color=_export_color(props["style"]["color"]),
             )
-            self.plotly_fig["layout"]["title_font"] = title_font
+            self.layout["title_font"] = title_font
 
     def draw_xlabel(self, **props):
         """Add an xaxis label to the current subplot in layout dictionary.
@@ -2664,23 +2777,20 @@ class PlotlyRenderer(Renderer):
         """
         self.msg += "        Adding xlabel\n"
         if self.current_is_3d:
-            self.plotly_fig["layout"][self.current_3d_subplot]["xaxis"]["title"] = dict(
-                text=str(props["text"])
-            )
+            scene = self.layout[self.current_3d_subplot]
+            scene["xaxis"]["title"] = dict(text=str(props["text"]))
             title_font = dict(
                 size=props["style"]["fontsize"], color=props["style"]["color"]
             )
-            self.plotly_fig["layout"][self.current_3d_subplot]["xaxis"][
-                "title_font"
-            ] = title_font
+            scene["xaxis"]["title_font"] = title_font
             return
         axis_key = "xaxis{0}".format(self.axis_ct)
-        self.plotly_fig["layout"][axis_key]["title"] = str(props["text"])
+        self.layout[axis_key]["title"] = str(props["text"])
         title_font = dict(
             size=props["style"]["fontsize"],
             color=_export_color(props["style"]["color"]),
         )
-        self.plotly_fig["layout"][axis_key]["title_font"] = title_font
+        self.layout[axis_key]["title_font"] = title_font
 
     def draw_ylabel(self, **props):
         """Add a yaxis label to the current subplot in layout dictionary.
@@ -2707,37 +2817,31 @@ class PlotlyRenderer(Renderer):
         """
         self.msg += "        Adding ylabel\n"
         if self.current_is_3d:
-            self.plotly_fig["layout"][self.current_3d_subplot]["yaxis"]["title"] = dict(
-                text=str(props["text"])
-            )
+            scene = self.layout[self.current_3d_subplot]
+            scene["yaxis"]["title"] = dict(text=str(props["text"]))
             title_font = dict(
                 size=props["style"]["fontsize"], color=props["style"]["color"]
             )
-            self.plotly_fig["layout"][self.current_3d_subplot]["yaxis"][
-                "title_font"
-            ] = title_font
+            scene["yaxis"]["title_font"] = title_font
             return
         axis_key = "yaxis{0}".format(self.axis_ct)
-        self.plotly_fig["layout"][axis_key]["title"] = props["text"]
+        self.layout[axis_key]["title"] = props["text"]
         title_font = dict(
             size=props["style"]["fontsize"],
             color=_export_color(props["style"]["color"]),
         )
-        self.plotly_fig["layout"][axis_key]["title_font"] = title_font
+        self.layout[axis_key]["title_font"] = title_font
 
     def draw_zlabel(self, **props):
         """Add a zaxis label to the current 3d subplot in layout dictionary."""
         self.msg += "        Adding zlabel\n"
         if self.current_is_3d:
-            self.plotly_fig["layout"][self.current_3d_subplot]["zaxis"]["title"] = dict(
-                text=str(props["text"])
-            )
+            scene = self.layout[self.current_3d_subplot]
+            scene["zaxis"]["title"] = dict(text=str(props["text"]))
             title_font = dict(
                 size=props["style"]["fontsize"], color=props["style"]["color"]
             )
-            self.plotly_fig["layout"][self.current_3d_subplot]["zaxis"][
-                "title_font"
-            ] = title_font
+            scene["zaxis"]["title_font"] = title_font
 
     def resize(self):
         """Revert figure layout to allow plotly to resize.
@@ -2751,7 +2855,11 @@ class PlotlyRenderer(Renderer):
         self.msg += "Resizing figure, deleting keys from layout\n"
         for key in ["width", "height", "autosize", "margin"]:
             try:
-                del self.plotly_fig["layout"][key]
+                del self._plotly_fig["layout"][key]
+            except (KeyError, AttributeError):
+                pass
+            try:
+                del self.layout[key]
             except (KeyError, AttributeError):
                 pass
 
