@@ -1568,29 +1568,37 @@ class PlotlyRenderer(Renderer):
         facecolors = mpltools.convert_rgba_array(colors3d)
         if not isinstance(facecolors, list):
             return False
-        verts = []
-        vertexcolor = []
-        triangles = []
         for start in range(0, len(faces), 6):
             box = faces[start : start + 6]
             corners = np.unique(box.reshape(-1, 3).round(6), axis=0)
             if len(corners) != 8:
                 return False
-            for face_index, face in enumerate(box):
-                base = len(verts)
-                for vertex in face:
-                    verts.append(vertex)
-                    vertexcolor.append(facecolors[start + face_index])
-                triangles.append((base, base + 1, base + 2))
-                triangles.append((base, base + 2, base + 3))
+
+        n_faces = len(faces)
+        verts = faces.reshape(-1, 3)
+        base_indices = np.arange(0, n_faces * 4, 4)
+        i = np.empty(n_faces * 2, dtype=np.int32)
+        j = np.empty(n_faces * 2, dtype=np.int32)
+        k = np.empty(n_faces * 2, dtype=np.int32)
+
+        i[0::2] = base_indices
+        j[0::2] = base_indices + 1
+        k[0::2] = base_indices + 2
+
+        i[1::2] = base_indices
+        j[1::2] = base_indices + 2
+        k[1::2] = base_indices + 3
+
+        vertexcolor = [c for c in facecolors for _ in range(4)]
+
         trace = dict(
             type="mesh3d",
-            x=[v[0] for v in verts],
-            y=[v[1] for v in verts],
-            z=[v[2] for v in verts],
-            i=[t[0] for t in triangles],
-            j=[t[1] for t in triangles],
-            k=[t[2] for t in triangles],
+            x=verts[:, 0],
+            y=verts[:, 1],
+            z=verts[:, 2],
+            i=i,
+            j=j,
+            k=k,
             vertexcolor=vertexcolor,
             flatshading=True,
             # matplotlib shades the faces itself, so disable plotly's
@@ -1598,7 +1606,7 @@ class PlotlyRenderer(Renderer):
             lighting=dict(ambient=1.0, diffuse=0.0, specular=0.0),
             scene=self.current_3d_subplot,
         )
-        self.plotly_fig.add_traces([trace])
+        self.plotly_fig.add_trace(trace)
         self.msg += "    Heck yeah, I drew that 3d bar chart\n"
         return True
 
@@ -1663,22 +1671,18 @@ class PlotlyRenderer(Renderer):
         # Handle edgecolors if explicitly specified
         ec = mplobj.get_edgecolors()
         if len(ec) > 0 and ec[0][3] > 0:
-            edge_x, edge_y, edge_z = [], [], []
-            for face in faces:
-                for v0, v1 in [
-                    (face[0], face[1]),
-                    (face[1], face[2]),
-                    (face[2], face[0]),
-                ]:
-                    edge_x.extend([v0[0], v1[0], None])
-                    edge_y.extend([v0[1], v1[1], None])
-                    edge_z.extend([v0[2], v1[2], None])
+            edges = np.empty((len(faces), 3, 3, 3), dtype=object)
+            for seg_idx, (v_start, v_end) in enumerate([(0, 1), (1, 2), (2, 0)]):
+                edges[:, seg_idx, 0, :] = faces[:, v_start, :]
+                edges[:, seg_idx, 1, :] = faces[:, v_end, :]
+                edges[:, seg_idx, 2, :] = None
+            edges_flat = edges.reshape(-1, 3)
             traces.append(
                 dict(
                     type="scatter3d",
-                    x=edge_x,
-                    y=edge_y,
-                    z=edge_z,
+                    x=edges_flat[:, 0].tolist(),
+                    y=edges_flat[:, 1].tolist(),
+                    z=edges_flat[:, 2].tolist(),
                     mode="lines",
                     line=dict(color=_export_color(ec[0]), width=1.0),
                     scene=self.current_3d_subplot,
@@ -1716,27 +1720,39 @@ class PlotlyRenderer(Renderer):
         if not isinstance(facecolors, list):
             facecolors = [facecolors]
 
-        verts = []
-        vertexcolor = []
-        triangles = []
-        for face_index, face in enumerate(faces):
-            base = len(verts)
-            fc = facecolors[face_index % len(facecolors)]
-            for vertex in face:
-                verts.append(vertex)
-                vertexcolor.append(fc)
-            triangles.append((base, base + 1, base + 2))
-            triangles.append((base, base + 2, base + 3))
+        n_faces = len(faces)
+        verts = faces.reshape(-1, 3)
+        base_indices = np.arange(0, n_faces * 4, 4)
+        i = np.empty(n_faces * 2, dtype=np.int32)
+        j = np.empty(n_faces * 2, dtype=np.int32)
+        k = np.empty(n_faces * 2, dtype=np.int32)
+
+        i[0::2] = base_indices
+        j[0::2] = base_indices + 1
+        k[0::2] = base_indices + 2
+
+        i[1::2] = base_indices
+        j[1::2] = base_indices + 2
+        k[1::2] = base_indices + 3
+
+        if len(facecolors) == 1:
+            vertexcolor = facecolors * (n_faces * 4)
+        else:
+            vertexcolor = [
+                facecolors[face_idx % len(facecolors)]
+                for face_idx in range(n_faces)
+                for _ in range(4)
+            ]
 
         scene = self.plotly_fig["layout"][self.current_3d_subplot]
         mesh_trace = dict(
             type="mesh3d",
-            x=[v[0] for v in verts],
-            y=[v[1] for v in verts],
-            z=[v[2] for v in verts],
-            i=[t[0] for t in triangles],
-            j=[t[1] for t in triangles],
-            k=[t[2] for t in triangles],
+            x=verts[:, 0],
+            y=verts[:, 1],
+            z=verts[:, 2],
+            i=i,
+            j=j,
+            k=k,
             vertexcolor=vertexcolor,
             flatshading=True,
             lighting=dict(ambient=1.0, diffuse=0.0, specular=0.0),
@@ -1746,23 +1762,20 @@ class PlotlyRenderer(Renderer):
 
         ec = mplobj.get_edgecolors()
         if len(ec) > 0 and ec[0][3] > 0:
-            edge_x, edge_y, edge_z = [], [], []
-            for face in faces:
-                for v0, v1 in [
-                    (face[0], face[1]),
-                    (face[1], face[2]),
-                    (face[2], face[3]),
-                    (face[3], face[0]),
-                ]:
-                    edge_x.extend([v0[0], v1[0], None])
-                    edge_y.extend([v0[1], v1[1], None])
-                    edge_z.extend([v0[2], v1[2], None])
+            edges = np.empty((n_faces, 4, 3, 3), dtype=object)
+            for seg_idx, (v_start, v_end) in enumerate(
+                [(0, 1), (1, 2), (2, 3), (3, 0)]
+            ):
+                edges[:, seg_idx, 0, :] = faces[:, v_start, :]
+                edges[:, seg_idx, 1, :] = faces[:, v_end, :]
+                edges[:, seg_idx, 2, :] = None
+            edges_flat = edges.reshape(-1, 3)
             traces.append(
                 dict(
                     type="scatter3d",
-                    x=edge_x,
-                    y=edge_y,
-                    z=edge_z,
+                    x=edges_flat[:, 0].tolist(),
+                    y=edges_flat[:, 1].tolist(),
+                    z=edges_flat[:, 2].tolist(),
                     mode="lines",
                     line=dict(color=_export_color(ec[0]), width=1.0),
                     scene=self.current_3d_subplot,
