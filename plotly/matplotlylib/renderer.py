@@ -252,8 +252,14 @@ class PlotlyRenderer(Renderer):
                 else None
             )
         )
+        bounds = props["bounds"]
+        domain = dict(
+            x=mpltools.convert_x_domain(bounds, self.mpl_x_bounds),
+            y=mpltools.convert_y_domain(bounds, self.mpl_y_bounds),
+        )
         frame = ax.spines.get("polar")
         self.layout[self.current_polar_subplot] = LayoutDict(
+            domain=domain,
             bgcolor=_export_color(props["axesbg"]),
             angularaxis=dict(
                 rotation=float(np.degrees(theta_offset)),

@@ -2280,3 +2280,31 @@ def test_buffered_layout_validation_error_reporting():
     renderer.layout["invalid_layout_key_12345"] = "bad_val"
     with pytest.raises(ValueError, match="Failed to validate Plotly layout"):
         renderer._finalize_layout()
+
+
+def test_multiple_polar_subplots_domain():
+    """Multiple polar subplots have distinct, non-overlapping domains."""
+    fig, (ax1, ax2) = plt.subplots(1, 2, subplot_kw={"projection": "polar"})
+    ax1.plot([0, 1], [0, 1])
+    ax2.plot([0, 1], [0, 2])
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert plotly_fig.layout.polar.domain.x is not None
+    assert plotly_fig.layout.polar2.domain.x is not None
+    assert plotly_fig.layout.polar.domain.x[1] <= plotly_fig.layout.polar2.domain.x[0]
+
+
+def test_mixed_cartesian_and_polar_subplots_domain():
+    """Figures with both cartesian and polar subplots assign non-overlapping domains."""
+    fig = plt.figure()
+    ax1 = fig.add_subplot(121)
+    ax2 = fig.add_subplot(122, projection="polar")
+    ax1.plot([0, 1], [0, 1])
+    ax2.plot([0, 1], [0, 2])
+
+    plotly_fig = tls.mpl_to_plotly(fig)
+
+    assert plotly_fig.layout.xaxis.domain is not None
+    assert plotly_fig.layout.polar.domain.x is not None
+    assert plotly_fig.layout.xaxis.domain[1] <= plotly_fig.layout.polar.domain.x[0]
